@@ -5,9 +5,19 @@ import type { Ticket } from '../types';
 import {
   BarChart, Bar,
   PieChart, Pie, Cell, Sector,
+  ScatterChart, Scatter, ZAxis, CartesianGrid,
   XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import { CHART_COLORS } from '../lib/constants';
+import { computeAgentStats } from '../lib/utils';
+
+/* ── Status colors (shared by the new distribution charts) ──────────── */
+const STATUS_SERIES = [
+  { key: 'completed',    name: 'Completed',     color: '#10B981' },
+  { key: 'pending',      name: 'Pending / Open', color: '#F59E0B' },
+  { key: 'closed',       name: 'Closed',        color: '#64748B' },
+  { key: 'cantDo',       name: "Can't Do",      color: '#EF4444' },
+] as const;
 
 /* ── EXCLUDE lists matching legacy exactly ──────────────────────────── */
 const EXCLUDE_MIDS = new Set(['301', '201', '202', '302']);
@@ -112,6 +122,72 @@ function computeFloorSupport(tickets: Ticket[]) {
     .slice(0, 5);
 }
 
+/* ── Issue Category Distribution (top concerns, donut) ──────────────── */
+function computeIssueCategoryDistribution(tickets: Ticket[]) {
+  const m: Record<string, number> = {};
+  tickets.forEach(t => { const c = (t.concern || 'Other').trim() || 'Other'; m[c] = (m[c] || 0) + 1; });
+  const sorted = Object.entries(m).map(([concern, count]) => ({ concern, count })).sort((a, b) => b.count - a.count);
+  const top = sorted.slice(0, 9);
+  const rest = sorted.slice(9).reduce((s, x) => s + x.count, 0);
+  if (rest > 0) top.push({ concern: 'Other', count: rest });
+  return top;
+}
+
+/* ── Agent Workload Share (pie, % of total tickets) ─────────────────── */
+function computeAgentWorkloadShare(tickets: Ticket[]) {
+  const m: Record<string, number> = {};
+  tickets.forEach(t => { const a = t.agent || 'Unassigned'; m[a] = (m[a] || 0) + 1; });
+  return Object.entries(m).map(([agent, count]) => ({ agent, count })).sort((a, b) => b.count - a.count);
+}
+
+/* ── Status Distribution by Agent (stacked bar) ─────────────────────── */
+function computeStatusByAgent(tickets: Ticket[]) {
+  const m: Record<string, { agent: string; completed: number; pending: number; closed: number; cantDo: number; total: number }> = {};
+  tickets.forEach(t => {
+    const a = t.agent || 'Unassigned';
+    if (!m[a]) m[a] = { agent: a, completed: 0, pending: 0, closed: 0, cantDo: 0, total: 0 };
+    const sl = t.status.toLowerCase();
+    if (sl === 'completed') m[a].completed++;
+    else if (sl === 'closed') m[a].closed++;
+    else if (sl.includes("can't") || sl.includes('cant')) m[a].cantDo++;
+    else m[a].pending++;
+    m[a].total++;
+  });
+  return Object.values(m).sort((a, b) => b.total - a.total).slice(0, 12);
+}
+
+/* ── Skill-Mix — top 5 concerns handled per agent (matches legacy cards) */
+function computeSkillMix(tickets: Ticket[]) {
+  const m: Record<string, Record<string, number>> = {};
+  tickets.forEach(t => {
+    const a = t.agent || 'Unassigned';
+    const c = (t.concern || 'Other').trim() || 'Other';
+    (m[a] ??= {})[c] = (m[a][c] || 0) + 1;
+  });
+  return Object.entries(m)
+    .map(([agent, concerns]) => ({
+      agent,
+      total: Object.values(concerns).reduce((s, x) => s + x, 0),
+      top: Object.entries(concerns).map(([concern, count]) => ({ concern, count })).sort((a, b) => b.count - a.count).slice(0, 5),
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+/* ── Agent Specialization scatter (completion-rate vs volume, by level) */
+function computeAgentSpecialization(tickets: Ticket[]) {
+  return computeAgentStats(tickets).map(s => ({
+    agent: s.name,
+    ticketCount: s.total,
+    completionRate: s.rate,
+    level: s.total >= 10 ? 'Expert' : s.total >= 5 ? 'Experienced' : 'Learning',
+  }));
+}
+const SPEC_LEVELS = [
+  { level: 'Expert',      name: 'Expert (10+ tickets)',     color: '#10B981' },
+  { level: 'Experienced', name: 'Experienced (5-9 tickets)', color: '#F59E0B' },
+  { level: 'Learning',    name: 'Learning (3-4 tickets)',    color: '#6366F1' },
+] as const;
+
 /* ── Agent Matrix Table ───────────────────────────────────────────── */
 function AgentMatrixTable({ matrix }: { matrix: Record<string, Record<string, number>> }) {
   const agents = Object.keys(matrix);
@@ -172,6 +248,11 @@ export default function AnalyticsView() {
   const concernTrends   = useMemo(() => computeConcernTrends(dateData),    [dateData]);
   const agentMatrix     = useMemo(() => computeAgentMatrix(dateData),      [dateData]);
   const floorSupport    = useMemo(() => computeFloorSupport(dateData),     [dateData]);
+  const issueCategories = useMemo(() => computeIssueCategoryDistribution(dateData), [dateData]);
+  const workloadShare   = useMemo(() => computeAgentWorkloadShare(dateData),        [dateData]);
+  const statusByAgent   = useMemo(() => computeStatusByAgent(dateData),            [dateData]);
+  const skillMix        = useMemo(() => computeSkillMix(dateData),                 [dateData]);
+  const specialization  = useMemo(() => computeAgentSpecialization(dateData),      [dateData]);
 
   // Pie chart active slice index state
   const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
@@ -430,6 +511,118 @@ export default function AnalyticsView() {
             </ResponsiveContainer>
           ) : <div className="chart-empty">No repeat customers (need 3+ tickets)</div>}
         </div>
+      </div>
+
+      {/* ── Issue & Workload Distribution ──────────────────────────── */}
+      <div className="section-header" style={{ marginTop: 8 }}>
+        <h2 className="section-title">📊 Issue &amp; Workload Distribution</h2>
+      </div>
+      <div className="charts-grid">
+        {/* 8. Issue Category Distribution — donut */}
+        <div className="chart-card">
+          <h3 className="chart-title">🗂️ Issue Category Distribution</h3>
+          {issueCategories.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={issueCategories} dataKey="count" nameKey="concern" cx="46%" cy="50%" innerRadius={55} outerRadius={100} paddingAngle={2}>
+                  {issueCategories.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} style={{ outline: 'none' }} />)}
+                </Pie>
+                <Tooltip content={<CustomChartTooltip />} />
+                <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <div className="chart-empty">No concern data</div>}
+        </div>
+
+        {/* 9. Agent Workload Share — pie */}
+        <div className="chart-card">
+          <h3 className="chart-title">👥 Agent Workload Share</h3>
+          {workloadShare.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={workloadShare} dataKey="count" nameKey="agent" cx="46%" cy="50%" outerRadius={100} label={(e) => `${Math.round((e.percent ?? 0) * 100)}%`} labelLine={false}>
+                  {workloadShare.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} style={{ outline: 'none' }} />)}
+                </Pie>
+                <Tooltip content={<CustomChartTooltip />} />
+                <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <div className="chart-empty">No workload data</div>}
+        </div>
+      </div>
+
+      {/* 10. Status Distribution by Agent — stacked bar */}
+      <div className="view-section">
+        <h3 className="section-title">📶 Status Distribution by Agent</h3>
+        {statusByAgent.length > 0 ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={statusByAgent} margin={{ top: 5, right: 20, bottom: 30, left: 0 }}>
+              <XAxis dataKey="agent" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" interval={0} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip content={<CustomChartTooltip />} />
+              <Legend />
+              {STATUS_SERIES.map(s => (
+                <Bar key={s.key} dataKey={s.key} name={s.name} stackId="status" fill={s.color} radius={s.key === 'cantDo' ? [4, 4, 0, 0] : undefined} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <div className="chart-empty" style={{ padding: 30 }}>No agent data</div>}
+      </div>
+
+      {/* 11. Agent Specialization — scatter (completion vs volume) */}
+      <div className="view-section">
+        <h3 className="section-title">🎯 Agent Specialization Matrix</h3>
+        {specialization.length > 0 ? (
+          <ResponsiveContainer width="100%" height={340}>
+            <ScatterChart margin={{ top: 10, right: 24, bottom: 24, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
+              <XAxis type="number" dataKey="ticketCount" name="Tickets" tick={{ fontSize: 11 }}
+                     label={{ value: 'Ticket Count', position: 'insideBottom', offset: -12, fontSize: 11 }} />
+              <YAxis type="number" dataKey="completionRate" name="Completion %" domain={[0, 100]} tick={{ fontSize: 11 }}
+                     label={{ value: 'Completion %', angle: -90, position: 'insideLeft', fontSize: 11 }} />
+              <ZAxis type="number" dataKey="ticketCount" range={[60, 500]} />
+              <Tooltip content={({ active, payload }) => {
+                const d = payload?.[0]?.payload;
+                if (!active || !d) return null;
+                return (
+                  <div className="custom-chart-tooltip">
+                    <div className="tooltip-title">{d.agent}</div>
+                    <div className="tooltip-row" style={{ color: 'var(--primary)' }}><span>Tickets: <strong>{d.ticketCount}</strong></span></div>
+                    <div className="tooltip-row" style={{ color: 'var(--primary)' }}><span>Completion: <strong>{d.completionRate}%</strong></span></div>
+                  </div>
+                );
+              }} />
+              <Legend />
+              {SPEC_LEVELS.map(l => (
+                <Scatter key={l.level} name={l.name} data={specialization.filter(s => s.level === l.level)} fill={l.color} />
+              ))}
+            </ScatterChart>
+          </ResponsiveContainer>
+        ) : <div className="chart-empty" style={{ padding: 30 }}>No specialization data</div>}
+      </div>
+
+      {/* 12. Skill-Mix & Specialization — per-agent top-5 concerns */}
+      <div className="view-section">
+        <h3 className="section-title">🧩 Skill-Mix &amp; Specialization Analytics</h3>
+        {skillMix.length > 0 ? (
+          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+            {skillMix.map(a => (
+              <div key={a.agent} className="chart-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                  <strong>{a.agent}</strong>
+                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>{a.total} tickets</span>
+                </div>
+                <div className="text-muted" style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Top 5 Concerns Handled</div>
+                {a.top.map(c => (
+                  <div key={c.concern} className="bar-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '0.85rem' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{c.concern}</span>
+                    <strong style={{ color: 'var(--primary)' }}>{c.count}</strong>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : <div className="chart-empty" style={{ padding: 30 }}>No skill-mix data</div>}
       </div>
 
       {/* 7. Floor Support Table (matches legacy renderFloorSupport) */}
