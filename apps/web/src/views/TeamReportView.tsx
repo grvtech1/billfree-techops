@@ -37,6 +37,14 @@ export default function TeamReportView() {
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState<'leaderboard' | 'detailed'>('leaderboard');
   const [period, setPeriod] = useState<'all' | 'week' | 'month'>('all');
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSet, setCompareSet] = useState<Set<string>>(new Set());
+  const toggleCompare = (email: string) =>
+    setCompareSet(prev => {
+      const n = new Set(prev);
+      if (n.has(email)) n.delete(email); else n.add(email);
+      return n;
+    });
 
   const selectedAgentTickets = selected
     ? dateData.filter(t => t.email === selected || t.agent === selected)
@@ -123,6 +131,21 @@ export default function TeamReportView() {
     return [top3[1], top3[0], top3[2]].filter(Boolean);
   }, [enrichedAgents]);
 
+  /* ── Compare Agents — selected rows + the metrics compared ──────── */
+  const compareAgents = enrichedAgents.filter(a => compareSet.has(a.email));
+  const COMPARE_ROWS: {
+    label: string; get: (a: (typeof enrichedAgents)[number]) => number; higherBetter: boolean; fmt: (v: number) => string;
+  }[] = [
+    { label: 'Points',          get: a => a.points,        higherBetter: true,  fmt: v => `${v}` },
+    { label: 'Total Tickets',   get: a => a.total,         higherBetter: true,  fmt: v => `${v}` },
+    { label: 'Completed',       get: a => a.completed,     higherBetter: true,  fmt: v => `${v}` },
+    { label: 'Completion Rate', get: a => a.rate,          higherBetter: true,  fmt: v => `${v}%` },
+    { label: 'Avg Resolution',  get: a => a.avgDays,       higherBetter: false, fmt: v => `${v}d` },
+    { label: "Can't Do",        get: a => a.cantDo,        higherBetter: false, fmt: v => `${v}` },
+    { label: 'Invalid Closed',  get: a => a.invalidClosed, higherBetter: false, fmt: v => `${v}` },
+    { label: 'Workload Share',  get: a => a.workloadPct,   higherBetter: true,  fmt: v => `${v}%` },
+  ];
+
   return (
     <div className="view-container">
       <div className="view-section"><DatePills /></div>
@@ -176,7 +199,18 @@ export default function TeamReportView() {
             <div className="view-section">
               <div className="section-header">
                 <h3 className="section-title">📋 Full Rankings</h3>
+                <button
+                  className={`btn btn-sm ${compareMode ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => { setCompareMode(m => !m); setCompareSet(new Set()); setSelected(null); }}
+                >
+                  {compareMode ? '✕ Exit Compare' : '⚖️ Compare Agents'}
+                </button>
               </div>
+              {compareMode && (
+                <p className="text-muted" style={{ fontSize: '0.8rem', margin: '0 0 8px' }}>
+                  Select 2+ agents below to compare them side-by-side.
+                </p>
+              )}
               <div className="ticket-table-scroll">
                 <table className="ticket-table lb-table">
                   <thead>
@@ -195,12 +229,18 @@ export default function TeamReportView() {
                     {enrichedAgents.map((a, i) => (
                       <tr
                         key={a.email}
-                        style={i < 3 ? { background: 'linear-gradient(to right, #F8FAFC, white)' } : undefined}
+                        style={
+                          compareMode && compareSet.has(a.email)
+                            ? { background: 'rgba(79,70,229,0.12)' }
+                            : i < 3 ? { background: 'linear-gradient(to right, #F8FAFC, white)' } : undefined
+                        }
                         className="clickable-row"
-                        onClick={() => setSelected(a.email)}
+                        onClick={() => (compareMode ? toggleCompare(a.email) : setSelected(a.email))}
                       >
                         <td style={{ textAlign: 'center' }}>
-                          {i < 3 ? <span style={{ fontSize: '1.5rem' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span> : <strong>#{i + 1}</strong>}
+                          {compareMode
+                            ? <span style={{ fontSize: '1.15rem' }}>{compareSet.has(a.email) ? '☑️' : '⬜'}</span>
+                            : i < 3 ? <span style={{ fontSize: '1.5rem' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span> : <strong>#{i + 1}</strong>}
                         </td>
                         <td><strong>{a.name}</strong></td>
                         <td><strong style={{ color: '#667eea', fontSize: '1.1rem' }}>{a.points}</strong></td>
@@ -220,6 +260,50 @@ export default function TeamReportView() {
                 </table>
               </div>
             </div>
+
+            {/* ══════ AGENT COMPARISON ══════ */}
+            {compareMode && (
+              compareAgents.length >= 2 ? (
+                <div className="view-section">
+                  <h3 className="section-title">⚖️ Agent Comparison ({compareAgents.length})</h3>
+                  <div className="ticket-table-scroll">
+                    <table className="ticket-table">
+                      <thead>
+                        <tr>
+                          <th>Metric</th>
+                          {compareAgents.map(a => <th key={a.email} style={{ textAlign: 'center' }}>{a.name}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {COMPARE_ROWS.map(row => {
+                          const vals = compareAgents.map(row.get);
+                          const best = row.higherBetter ? Math.max(...vals) : Math.min(...vals);
+                          return (
+                            <tr key={row.label}>
+                              <td><strong>{row.label}</strong></td>
+                              {compareAgents.map((a, idx) => (
+                                <td
+                                  key={a.email}
+                                  style={{ textAlign: 'center', ...(vals[idx] === best ? { color: '#059669', fontWeight: 800 } : {}) }}
+                                >
+                                  {row.fmt(vals[idx])}{vals[idx] === best ? ' 🏆' : ''}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="view-section">
+                  <div className="chart-empty" style={{ padding: 20 }}>
+                    Select {2 - compareAgents.length} more agent{2 - compareAgents.length === 1 ? '' : 's'} from the rankings to compare.
+                  </div>
+                </div>
+              )
+            )}
           </>
         )}
 
