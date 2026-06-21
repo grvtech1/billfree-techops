@@ -4,6 +4,11 @@ image:
   tag: "f954500c5e90b72eab43f507730d2060aa74e16b"
 replicaCount: 2
 containerPort: 8080
+service:
+  # Listen on 8080 (= container port). The web SPA's nginx proxies /api + /auth to
+  # `api-gateway:8080` (to match docker-compose), so the in-cluster Service must
+  # expose 8080 too — the chart default of 80 caused the SPA's login calls to hang.
+  port: 8080
 env:
   - name: SERVICE_NAME
     value: api-gateway
