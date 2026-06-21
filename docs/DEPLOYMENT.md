@@ -1,17 +1,18 @@
 # Deployment runbook — cloud-native (self-managed Kubernetes)
 
-End-to-end path: **local → images → self-managed cluster → GitOps**. Replace
-`OWNER` with your GitHub org/user throughout (image repos + ArgoCD `repoURL`).
+End-to-end path: **local → images → self-managed cluster → GitOps**. Image repos
+and ArgoCD `repoURL`s are already set to `grvtech1/billfree-techops`.
 
 ## 0. Topology
 
 ```
- GitHub Actions ──build/scan──▶ GHCR (ghcr.io/OWNER/billfree-techops/*)
+ GitHub Actions ──build/scan──▶ GHCR (ghcr.io/grvtech1/billfree-techops/*)
         │ bump deploy/ tags (commit)
         ▼
    Git repo (main) ◀──watch── ArgoCD ──sync──▶ self-managed kubeadm cluster (EC2)
                                                    namespace: billfree
-                                                    web → api-gateway → {auth,ticket,analytics}
+                                                    web → api-gateway →
+                                                      {auth,ticket,analytics,calllog,report}
                                                     postgres (StatefulSet) · redis
                                                   ingress-nginx (DaemonSet, hostPort 80/443)
                                                   monitoring (Prometheus + Grafana)
@@ -67,8 +68,13 @@ kubectl create namespace billfree
 kubectl -n billfree create secret generic billfree-app-secrets \
   --from-literal=JWT_SECRET="$(openssl rand -hex 24)" \
   --from-literal=JWT_ISSUER="billfree-techops" \
-  --from-literal=DATABASE_URL="postgres://billfree:billfree-change-me@postgres:5432/billfree"
+  --from-literal=DATABASE_URL="postgres://billfree:billfree-change-me@postgres:5432/billfree" \
+  --from-literal=INTAKE_API_KEY="$(openssl rand -hex 24)"
 ```
+
+> `INTAKE_API_KEY` enables the WhatsApp chatbot intake routes (ticket-service +
+> gateway). Share it with the chatbot owner; rotate by updating the secret and
+> restarting both deployments. See `docs/WHATSAPP_INTAKE.md`.
 
 > For production, replace this with a **SealedSecret** or **External Secrets
 > Operator** so nothing sensitive lives in Git. See `deploy/secrets/app-secret.example.yaml`.
@@ -81,7 +87,8 @@ kubectl apply -n argocd -f deploy/argocd/root.yaml
 
 The app-of-apps root then reconciles every child Application in
 `deploy/argocd/apps/`: ingress-nginx, monitoring, platform (postgres/redis +
-PreSync migrate Job), and the five service Applications. Watch it converge:
+PreSync migrate Job), and the six service Applications (api-gateway, auth,
+ticket, analytics, calllog, report). Watch it converge:
 
 ```bash
 kubectl -n argocd get applications
