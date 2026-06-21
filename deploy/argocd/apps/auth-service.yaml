@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/grvtech1/billfree-techops.git
+      targetRevision: main
+      path: deploy/charts/microservice
+      helm:
+        releaseName: auth-service
+        valueFiles:
+          - $values/deploy/apps/auth-service/values.yaml
+    - repoURL: https://github.com/grvtech1/billfree-techops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: billfree
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

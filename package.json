@@ -1,0 +1,30 @@
+{
+  "name": "billfree-techops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BillFree TechSupport Ops — React SPA (Cloudflare Pages) + modular Google Apps Script backend.",
+  "workspaces": [
+    "apps/web",
+    "apps/gas",
+    "packages/shared",
+    "packages/service-common",
+    "services/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspace apps/web",
+    "typecheck": "npm run typecheck --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "test:gas": "npm run test --workspace apps/gas",
+    "test:web": "npm run test --workspace apps/web",
+    "dev": "npm run dev --workspace apps/web",
+    "format": "prettier --write \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/shared/src/**/*.ts\"",
+    "format:check": "prettier --check \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/shared/src/**/*.ts\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

@@ -1,0 +1,40 @@
+nameOverride: api-gateway
+image:
+  repository: ghcr.io/grvtech1/billfree-techops/api-gateway
+  tag: latest
+replicaCount: 2
+containerPort: 8080
+env:
+  - name: SERVICE_NAME
+    value: api-gateway
+  - name: PORT
+    value: "8080"
+  # In-cluster service DNS (chart Service port is 80 → container 8080).
+  - name: AUTH_SERVICE_URL
+    value: http://auth-service:80
+  - name: TICKET_SERVICE_URL
+    value: http://ticket-service:80
+  - name: ANALYTICS_SERVICE_URL
+    value: http://analytics-service:80
+  - name: CALLLOG_SERVICE_URL
+    value: http://calllog-service:80
+  - name: REPORT_SERVICE_URL
+    value: http://report-service:80
+  - name: CORS_ORIGINS
+    value: "*"
+  - name: RATE_LIMIT_MAX
+    value: "200"
+envFrom:
+  - secretRef:
+      name: billfree-app-secrets
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 65
+ingress:
+  enabled: true
+  className: nginx
+  host: api.billfree.example
+  path: /
+  pathType: Prefix

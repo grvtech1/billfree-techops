@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Type-check, lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Shared contract tests (frontend↔backend parity)
+        run: npm run test --workspace packages/shared
+
+      - name: GAS backend tests
+        run: npm run test --workspace apps/gas
+
+      - name: service-common type-check
+        run: npm run typecheck --workspace packages/service-common
+
+      - name: Microservices — type-check + test
+        run: |
+          for s in api-gateway auth-service ticket-service analytics-service calllog-service report-service; do
+            echo "::group::$s"
+            npm run typecheck --workspace services/$s
+            npm run test --workspace services/$s
+            echo "::endgroup::"
+          done
+
+      - name: Web — type-check + lint + test + build
+        env:
+          VITE_GAS_URL: ${{ secrets.VITE_GAS_URL }}
+        run: |
+          npm run typecheck --workspace apps/web
+          npm run lint --workspace apps/web
+          npm run test --workspace apps/web
+          npm run build --workspace apps/web

@@ -1,0 +1,6 @@
+{
+  "scriptId": "<YOUR_APPS_SCRIPT_SCRIPT_ID>",
+  "rootDir": "src",
+  "fileExtension": "gs",
+  "filePushOrder": ["src/Code.gs"]
+}

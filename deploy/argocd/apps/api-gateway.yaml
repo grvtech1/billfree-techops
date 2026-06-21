@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/grvtech1/billfree-techops.git
+      targetRevision: main
+      path: deploy/charts/microservice
+      helm:
+        releaseName: api-gateway
+        valueFiles:
+          - $values/deploy/apps/api-gateway/values.yaml
+    - repoURL: https://github.com/grvtech1/billfree-techops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: billfree
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,39 @@
+# ── Dependencies ──────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Build output ──────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+
+# ── Environment & secrets (NEVER commit) ──────────────────────
+# The production GAS deployment URL and any keys live only in local
+# .env files and CI secrets. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
+
+# ── Google Apps Script / clasp ────────────────────────────────
+# .clasp.json contains the live scriptId — keep it local; commit the
+# .clasp.json.example template instead.
+apps/gas/.clasp.json
+.clasprc.json
+
+# ── Test / coverage ───────────────────────────────────────────
+coverage/
+.vitest/
+
+# ── Editor / OS ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.log
+npm-debug.log*
+
+# ── Local archives ────────────────────────────────────────────
+apps/web/_archive/

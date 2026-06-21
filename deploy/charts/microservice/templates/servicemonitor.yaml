@@ -1,0 +1,19 @@
+{{- if .Values.metrics.enabled }}
+# Scraped by the Prometheus Operator (kube-prometheus-stack). Requires the
+# ServiceMonitor CRD to be installed in the cluster.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "microservice.fullname" . }}
+  labels:
+    {{- include "microservice.labels" . | nindent 4 }}
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      {{- include "microservice.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: {{ .Values.metrics.path }}
+      interval: 15s
+{{- end }}
