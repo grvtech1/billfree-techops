@@ -3,15 +3,11 @@ name: Build & Deploy (GitOps)
 # Builds + scans + pushes one image per service to GHCR, then bumps the image
 # tags in deploy/ and commits — ArgoCD watches the repo and rolls out the change.
 # CI never touches the cluster directly (pull-based GitOps).
+# Runs on every push to main (and manual dispatch). The GitOps tag-bump commit
+# this workflow makes carries "[skip ci]", so it never re-triggers itself.
 on:
   push:
     branches: [main]
-    paths:
-      - 'services/**'
-      - 'packages/**'
-      - 'apps/web/**'
-      - 'db/**'
-      - 'deploy/charts/**'
   workflow_dispatch:
 
 permissions:
