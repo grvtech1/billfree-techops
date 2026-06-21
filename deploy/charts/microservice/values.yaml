@@ -1,0 +1,75 @@
+# Defaults for the reusable microservice chart. Per-service overrides live in
+# deploy/apps/<service>/values.yaml and are applied by the ArgoCD Applications.
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/grvtech1/billfree-techops/service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+replicaCount: 2
+containerPort: 8080
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Plain env vars (name/value) and env sourced from Secrets/ConfigMaps.
+env: []
+envFrom: []
+#   - secretRef:
+#       name: billfree-app-secrets
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+probes:
+  liveness:
+    path: /healthz
+  readiness:
+    path: /readyz
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+metrics:
+  enabled: true
+  path: /metrics
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: ""
+  path: /
+  pathType: Prefix
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

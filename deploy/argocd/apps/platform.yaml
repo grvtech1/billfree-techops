@@ -1,0 +1,23 @@
+# In-cluster data layer: Postgres (StatefulSet), Redis, and the PreSync migrate Job.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/grvtech1/billfree-techops.git
+    targetRevision: main
+    path: deploy/platform
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: billfree
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

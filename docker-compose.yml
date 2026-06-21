@@ -1,0 +1,147 @@
+name: billfree-techops
+
+# Local end-to-end stack mirroring the cloud topology:
+#   web (nginx) → api-gateway → {auth,ticket,analytics}-service → postgres
+# Bring up with:  docker compose up --build
+# Then open:      http://localhost:3000  (web)  ·  http://localhost:8080 (gateway)
+
+x-service-env: &service-env
+  NODE_ENV: production
+  JWT_SECRET: local-dev-secret-please-change
+  JWT_ISSUER: billfree-techops
+  LOG_LEVEL: info
+  # Enables the WhatsApp/portal intake routes (ticket-service + gateway read it).
+  INTAKE_API_KEY: local-dev-intake-key-please-change
+
+x-node-healthcheck: &node-healthcheck
+  test: ['CMD', 'node', '-e', "fetch('http://localhost:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+  interval: 10s
+  timeout: 3s
+  retries: 5
+  start_period: 10s
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: billfree
+      POSTGRES_PASSWORD: billfree
+      POSTGRES_DB: billfree
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U billfree']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['6379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: { context: ., dockerfile: db/Dockerfile }
+    environment:
+      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  auth-service:
+    build: { context: ., dockerfile: services/auth-service/Dockerfile }
+    environment:
+      <<: *service-env
+      SERVICE_NAME: auth-service
+      PORT: 8080
+    healthcheck: *node-healthcheck
+    ports: ['8081:8080']
+
+  ticket-service:
+    build: { context: ., dockerfile: services/ticket-service/Dockerfile }
+    environment:
+      <<: *service-env
+      SERVICE_NAME: ticket-service
+      PORT: 8080
+      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck: *node-healthcheck
+    ports: ['8082:8080']
+
+  analytics-service:
+    build: { context: ., dockerfile: services/analytics-service/Dockerfile }
+    environment:
+      <<: *service-env
+      SERVICE_NAME: analytics-service
+      PORT: 8080
+      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck: *node-healthcheck
+    ports: ['8083:8080']
+
+  calllog-service:
+    build: { context: ., dockerfile: services/calllog-service/Dockerfile }
+    environment:
+      <<: *service-env
+      SERVICE_NAME: calllog-service
+      PORT: 8080
+      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck: *node-healthcheck
+    ports: ['8084:8080']
+
+  report-service:
+    build: { context: ., dockerfile: services/report-service/Dockerfile }
+    environment:
+      <<: *service-env
+      SERVICE_NAME: report-service
+      PORT: 8080
+      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck: *node-healthcheck
+    ports: ['8085:8080']
+
+  api-gateway:
+    build: { context: ., dockerfile: services/api-gateway/Dockerfile }
+    environment:
+      <<: *service-env
+      SERVICE_NAME: api-gateway
+      PORT: 8080
+      AUTH_SERVICE_URL: http://auth-service:8080
+      TICKET_SERVICE_URL: http://ticket-service:8080
+      ANALYTICS_SERVICE_URL: http://analytics-service:8080
+      CALLLOG_SERVICE_URL: http://calllog-service:8080
+      REPORT_SERVICE_URL: http://report-service:8080
+      CORS_ORIGINS: '*'
+      RATE_LIMIT_MAX: 200
+    depends_on:
+      auth-service: { condition: service_healthy }
+      ticket-service: { condition: service_healthy }
+      analytics-service: { condition: service_healthy }
+      calllog-service: { condition: service_healthy }
+      report-service: { condition: service_healthy }
+    healthcheck: *node-healthcheck
+    ports: ['8080:8080']
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      api-gateway: { condition: service_healthy }
+    ports: ['3000:80']
+
+volumes:
+  pgdata:

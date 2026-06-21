@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+apps/web/_archive/
+apps/gas/src/Index.html
+package-lock.json
+*.gs

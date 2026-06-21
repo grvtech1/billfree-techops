@@ -1,0 +1,20 @@
+nameOverride: auth-service
+image:
+  repository: ghcr.io/grvtech1/billfree-techops/auth-service
+  tag: latest
+replicaCount: 2
+containerPort: 8080
+env:
+  - name: SERVICE_NAME
+    value: auth-service
+  - name: PORT
+    value: "8080"
+envFrom:
+  # auth-service only needs JWT_* from the shared secret (DATABASE_URL unused).
+  - secretRef:
+      name: billfree-app-secrets
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70

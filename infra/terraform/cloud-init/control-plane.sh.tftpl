@@ -1,0 +1,55 @@
+#!/bin/bash
+set -euxo pipefail
+
+# ── Kernel prerequisites ─────────────────────────────────────────────────────
+cat >/etc/modules-load.d/k8s.conf <<'EOF'
+overlay
+br_netfilter
+EOF
+modprobe overlay
+modprobe br_netfilter
+cat >/etc/sysctl.d/k8s.conf <<'EOF'
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+sysctl --system
+swapoff -a
+sed -i '/ swap / s/^/#/' /etc/fstab
+
+# ── containerd (the container runtime; Docker images run on it) ──────────────
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y containerd apt-transport-https ca-certificates curl gpg
+mkdir -p /etc/containerd
+containerd config default >/etc/containerd/config.toml
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+systemctl restart containerd
+systemctl enable containerd
+
+# ── kubeadm / kubelet / kubectl ──────────────────────────────────────────────
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v${k8s_version}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${k8s_version}/deb/ /" >/etc/apt/sources.list.d/kubernetes.list
+apt-get update
+apt-get install -y kubelet kubeadm kubectl
+apt-mark hold kubelet kubeadm kubectl
+
+# ── Initialise the control plane ─────────────────────────────────────────────
+kubeadm init \
+  --pod-network-cidr=${pod_cidr} \
+  --token=${token} \
+  --token-ttl=0 \
+  --ignore-preflight-errors=NumCPU
+
+# Make kubectl usable by root and the ubuntu user.
+mkdir -p /home/ubuntu/.kube /root/.kube
+cp -f /etc/kubernetes/admin.conf /root/.kube/config
+cp -f /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+chown -R ubuntu:ubuntu /home/ubuntu/.kube
+
+# ── Calico CNI ───────────────────────────────────────────────────────────────
+export KUBECONFIG=/etc/kubernetes/admin.conf
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
+
+echo "control-plane bootstrap complete" >/var/log/k8s-bootstrap.done

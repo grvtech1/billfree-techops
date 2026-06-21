@@ -1,0 +1,35 @@
+nameOverride: web
+image:
+  repository: ghcr.io/grvtech1/billfree-techops/web
+  tag: latest
+replicaCount: 2
+containerPort: 80
+service:
+  port: 80
+probes:
+  liveness:
+    path: /healthz
+  readiness:
+    path: /healthz
+metrics:
+  enabled: false
+# Stock nginx writes its cache/pid and binds :80, so relax the hardened defaults.
+podSecurityContext:
+  runAsNonRoot: false
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+    add: ["NET_BIND_SERVICE"]
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+ingress:
+  enabled: true
+  className: nginx
+  host: billfree.example
+  path: /
+  pathType: Prefix

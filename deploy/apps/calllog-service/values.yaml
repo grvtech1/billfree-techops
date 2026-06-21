@@ -1,0 +1,20 @@
+nameOverride: calllog-service
+image:
+  repository: ghcr.io/grvtech1/billfree-techops/calllog-service
+  tag: latest
+replicaCount: 2
+containerPort: 8080
+env:
+  - name: SERVICE_NAME
+    value: calllog-service
+  - name: PORT
+    value: "8080"
+envFrom:
+  # JWT_SECRET, JWT_ISSUER, DATABASE_URL (bootstrap secret — see deploy README).
+  - secretRef:
+      name: billfree-app-secrets
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
