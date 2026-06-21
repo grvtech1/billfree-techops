@@ -37,3 +37,14 @@ npm-debug.log*
 
 # ── Local archives ────────────────────────────────────────────
 apps/web/_archive/
+
+# ── Terraform (state + generated key + kubeconfig — NEVER commit) ──
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/terraform.tfvars
+infra/terraform/.ssh/
+infra/terraform/*.pem
+infra/terraform/kubeconfig
+crash.log
