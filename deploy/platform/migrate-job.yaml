@@ -1,13 +1,14 @@
-# DB migration runner. The ArgoCD PreSync hook guarantees migrations apply
-# before the services that depend on the schema sync. The runner is idempotent
-# (tracked in schema_migrations), so re-running is safe.
+# DB migration runner. Runs as a PostSync hook so it fires AFTER Postgres (in the
+# same platform app) is synced and healthy — a PreSync hook would run before
+# Postgres exists and deadlock (it can't resolve the `postgres` host). The runner
+# is idempotent (tracked in schema_migrations), so re-running is safe.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: db-migrate
   namespace: billfree
   annotations:
-    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
   labels:
     app.kubernetes.io/name: db-migrate
