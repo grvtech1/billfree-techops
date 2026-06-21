@@ -1,7 +1,7 @@
 nameOverride: auth-service
 image:
   repository: ghcr.io/grvtech1/billfree-techops/auth-service
-  tag: "f954500c5e90b72eab43f507730d2060aa74e16b"
+  tag: "93f2207887f2e3775f64c2f60689a6ac5f38f3ed"
 replicaCount: 2
 containerPort: 8080
 env:
