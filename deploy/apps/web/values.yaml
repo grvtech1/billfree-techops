@@ -1,7 +1,7 @@
 nameOverride: web
 image:
   repository: ghcr.io/grvtech1/billfree-techops/web
-  tag: "93f2207887f2e3775f64c2f60689a6ac5f38f3ed"
+  tag: "c9af35247768fb4badc0fd12f65671a761b2f360"
 replicaCount: 2
 containerPort: 80
 service:
