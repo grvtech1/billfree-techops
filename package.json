@@ -14,11 +14,16 @@
   },
   "scripts": {
     "test": "npm run test --workspaces --if-present",
+    "quality": "npm run typecheck --workspaces --if-present && npm run lint --workspace apps/web && npm test",
     "lint": "npm run lint --workspace apps/web",
-    "typecheck": "npm run typecheck --workspace apps/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspace apps/web",
     "test:gas": "npm run test --workspace apps/gas",
     "test:web": "npm run test --workspace apps/web",
+    "validate:compose": "docker compose config --quiet",
+    "validate:terraform": "terraform -chdir=infra/terraform fmt -check -recursive && terraform -chdir=infra/terraform init -backend=false && terraform -chdir=infra/terraform validate",
+    "validate:helm": "helm lint deploy/charts/microservice -f deploy/apps/api-gateway/values.yaml && helm lint deploy/charts/microservice -f deploy/apps/auth-service/values.yaml && helm lint deploy/charts/microservice -f deploy/apps/ticket-service/values.yaml && helm lint deploy/charts/microservice -f deploy/apps/analytics-service/values.yaml && helm lint deploy/charts/microservice -f deploy/apps/calllog-service/values.yaml && helm lint deploy/charts/microservice -f deploy/apps/report-service/values.yaml && helm lint deploy/charts/microservice -f deploy/apps/web/values.yaml",
+    "validate:devops": "npm run validate:compose && npm run validate:terraform && npm run validate:helm",
     "dev": "npm run dev --workspace apps/web",
     "format": "prettier --write \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/shared/src/**/*.ts\"",
     "format:check": "prettier --check \"apps/web/src/**/*.{ts,tsx,css}\" \"packages/shared/src/**/*.ts\""
