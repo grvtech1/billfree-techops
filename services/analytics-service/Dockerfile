@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:20-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages ./packages
@@ -7,7 +7,7 @@ COPY services/analytics-service ./services/analytics-service
 RUN npm ci
 RUN npm run build --workspace services/analytics-service
 
-FROM node:20-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY services/analytics-service/package.json ./
