@@ -1,7 +1,7 @@
 nameOverride: ticket-service
 image:
   repository: ghcr.io/grvtech1/billfree-techops/ticket-service
-  tag: "fa802a796bedd12c207a336301cf3b4381a1d8d9"
+  tag: "b244860d6ae48e82f4126540087125fb4634ebd5"
 replicaCount: 2
 containerPort: 8080
 env:
