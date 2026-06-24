@@ -23,7 +23,7 @@
     "recharts": "^2.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.3.28",
+    "@types/react": "^19.2.17",
     "typescript": "^5.9.3",
     "zustand": "^4.5.7",
     "recharts": "2.15.4"
