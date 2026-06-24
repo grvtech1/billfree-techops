@@ -1,0 +1,51 @@
+# ApplicationSet — one Application per service for the STAGING environment, all
+# into namespace `billfree-staging`. Layers the staging overlay over each
+# service's base values. Bootstrap once:
+#   kubectl apply -f deploy/envs/staging/applicationset.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: billfree-staging
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - service: api-gateway
+          - service: auth-service
+          - service: ticket-service
+          - service: analytics-service
+          - service: calllog-service
+          - service: report-service
+          - service: web
+  template:
+    metadata:
+      name: "staging-{{.service}}"
+      labels:
+        billfree.io/env: staging
+        billfree.io/service: "{{.service}}"
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/grvtech1/billfree-techops.git
+          targetRevision: main
+          path: deploy/charts/microservice
+          helm:
+            releaseName: "{{.service}}"
+            valueFiles:
+              - $values/deploy/apps/{{.service}}/values.yaml
+              - $values/deploy/envs/staging/values.yaml
+        - repoURL: https://github.com/grvtech1/billfree-techops.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: billfree-staging
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

@@ -1,0 +1,54 @@
+# ApplicationSet — one Application per service for the PROD environment, all into
+# namespace `billfree-prod`. Layers the prod overlay over each service's base
+# values. In a real org prod would be a SEPARATE cluster (different `destination.
+# server`); on a single free-tier cluster a dedicated namespace is the pragmatic
+# stand-in. Bootstrap once:
+#   kubectl apply -f deploy/envs/prod/applicationset.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: billfree-prod
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - service: api-gateway
+          - service: auth-service
+          - service: ticket-service
+          - service: analytics-service
+          - service: calllog-service
+          - service: report-service
+          - service: web
+  template:
+    metadata:
+      name: "prod-{{.service}}"
+      labels:
+        billfree.io/env: prod
+        billfree.io/service: "{{.service}}"
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/grvtech1/billfree-techops.git
+          targetRevision: main
+          path: deploy/charts/microservice
+          helm:
+            releaseName: "{{.service}}"
+            valueFiles:
+              - $values/deploy/apps/{{.service}}/values.yaml
+              - $values/deploy/envs/prod/values.yaml
+        - repoURL: https://github.com/grvtech1/billfree-techops.git
+          targetRevision: main
+          ref: values
+      destination:
+        # Real prod = its own cluster. On free tier, an isolated namespace stands in.
+        server: https://kubernetes.default.svc
+        namespace: billfree-prod
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
