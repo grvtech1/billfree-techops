@@ -6,8 +6,7 @@
   "workspaces": [
     "apps/web",
     "apps/gas",
-    "packages/shared",
-    "packages/service-common",
+    "packages/*",
     "services/*"
   ],
   "engines": {

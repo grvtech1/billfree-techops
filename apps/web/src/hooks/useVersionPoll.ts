@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { fetchVersion } from '../lib/api';
-import { VERSION_POLL_MIN_MS, VERSION_POLL_MAX_MS } from '../lib/constants';
+import { fetchVersion } from '@billfree/api';
+import { VERSION_POLL_MIN_MS, VERSION_POLL_MAX_MS } from '@billfree/web-core';
 
 interface Options {
   currentVersion: number;

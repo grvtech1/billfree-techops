@@ -15,6 +15,13 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
         '@billfree/shared': path.resolve(__dirname, '../../packages/shared/src'),
+        '@billfree/web-core': path.resolve(__dirname, '../../packages/web-core/src'),
+        '@billfree/api': path.resolve(__dirname, '../../packages/api/src'),
+        '@billfree/ui': path.resolve(__dirname, '../../packages/ui/src'),
+        '@billfree/app-state': path.resolve(__dirname, '../../packages/app-state/src'),
+        '@billfree/feature-tickets': path.resolve(__dirname, '../../packages/feature-tickets/src'),
+        '@billfree/feature-calllog': path.resolve(__dirname, '../../packages/feature-calllog/src'),
+        '@billfree/feature-reports': path.resolve(__dirname, '../../packages/feature-reports/src'),
       },
     },
     build: {
