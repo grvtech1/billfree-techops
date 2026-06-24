@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ─── Build the React SPA ─────────────────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages ./packages
