@@ -1,21 +1,19 @@
 import { lazy, Suspense } from 'react';
-import { useUiStore } from '../../store/uiStore';
-import type { Ticket } from '../../types';
+import type { Ticket } from '@billfree/web-core';
+import { useUiStore } from '@billfree/app-state';
+import { CreateTicketModal, UpdateTicketModal, TicketAuditModal } from '@billfree/feature-tickets';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import ToastContainer from '../common/Toast';
-import CreateTicketModal from '../tickets/CreateTicketModal';
-import UpdateTicketModal from '../tickets/UpdateTicketModal';
-import TicketAuditModal from '../tickets/TicketAuditModal';
 
-// Lazy-load heavy views
-const DashboardView      = lazy(() => import('../../views/DashboardView'));
-const MasterDbView       = lazy(() => import('../../views/MasterDbView'));
-const TeamReportView     = lazy(() => import('../../views/TeamReportView'));
-const AnalyticsView      = lazy(() => import('../../views/AnalyticsView'));
-const HistoryView        = lazy(() => import('../../views/HistoryView'));
-const CallLogView        = lazy(() => import('../../views/CallLogView'));
-const MonthlyReportView  = lazy(() => import('../../views/MonthlyReportView'));
+// Lazy-load heavy views from their feature packages (named exports → { default }).
+const DashboardView      = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.DashboardView })));
+const MasterDbView       = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.MasterDbView })));
+const TeamReportView     = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.TeamReportView })));
+const AnalyticsView      = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.AnalyticsView })));
+const HistoryView        = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.HistoryView })));
+const CallLogView        = lazy(() => import('@billfree/feature-calllog').then(m => ({ default: m.CallLogView })));
+const MonthlyReportView  = lazy(() => import('@billfree/feature-reports').then(m => ({ default: m.MonthlyReportView })));
 
 function ViewSkeleton() {
   return (

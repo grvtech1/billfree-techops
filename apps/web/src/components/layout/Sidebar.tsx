@@ -1,5 +1,5 @@
-import { useUiStore } from '../../store/uiStore';
-import { useTicketStore } from '../../store/ticketStore';
+import { useUiStore } from '@billfree/app-state';
+import { useTicketStore } from '@billfree/feature-tickets';
 
 type NavSection = {
   label: string;
