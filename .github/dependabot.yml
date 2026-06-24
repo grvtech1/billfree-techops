@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directories:
+      - /apps/web
+      - /db
+      - /services/api-gateway
+      - /services/auth-service
+      - /services/ticket-service
+      - /services/analytics-service
+      - /services/calllog-service
+      - /services/report-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

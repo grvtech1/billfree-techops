@@ -33,9 +33,9 @@ resource "aws_instance" "worker" {
   associate_public_ip_address = true
 
   user_data = templatefile("${path.module}/cloud-init/worker.sh.tftpl", {
-    k8s_version          = var.kubernetes_version
-    token                = local.bootstrap_token
-    control_plane_ip     = aws_instance.control_plane.private_ip
+    k8s_version      = var.kubernetes_version
+    token            = local.bootstrap_token
+    control_plane_ip = aws_instance.control_plane.private_ip
   })
 
   root_block_device {
