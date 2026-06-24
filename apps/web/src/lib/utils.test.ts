@@ -8,8 +8,8 @@ import {
   computeKPIs,
   computeAgentStats,
   normaliseTicket,
-} from './utils';
-import type { RawTicket } from '../types';
+} from '@billfree/web-core';
+import type { RawTicket } from '@billfree/web-core';
 
 // Minimal raw-ticket factory → full Ticket via the real normaliser.
 function ticket(p: Partial<RawTicket>): ReturnType<typeof normaliseTicket> {

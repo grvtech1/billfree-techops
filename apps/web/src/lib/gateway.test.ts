@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gatewayApi, gatewayTicketToRaw, gatewayCallToEvent, gatewayLogin } from './gateway';
+import { gatewayApi, gatewayTicketToRaw, gatewayCallToEvent, gatewayLogin } from '@billfree/api';
 
 const gwTicket = {
   id: 'BF-1',

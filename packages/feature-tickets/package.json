@@ -1,0 +1,31 @@
+{
+  "name": "@billfree/feature-tickets",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@billfree/web-core": "*",
+    "@billfree/api": "*",
+    "@billfree/ui": "*",
+    "@billfree/app-state": "*"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "zustand": "^4.0.0",
+    "recharts": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.28",
+    "typescript": "^5.9.3",
+    "zustand": "^4.5.7",
+    "recharts": "2.15.4"
+  }
+}

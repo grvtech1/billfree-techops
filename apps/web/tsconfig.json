@@ -18,7 +18,14 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@billfree/shared": ["../../packages/shared/src/index.ts"]
+      "@billfree/shared": ["../../packages/shared/src/index.ts"],
+      "@billfree/web-core": ["../../packages/web-core/src/index.ts"],
+      "@billfree/api": ["../../packages/api/src/index.ts"],
+      "@billfree/ui": ["../../packages/ui/src/index.ts"],
+      "@billfree/app-state": ["../../packages/app-state/src/index.ts"],
+      "@billfree/feature-tickets": ["../../packages/feature-tickets/src/index.ts"],
+      "@billfree/feature-calllog": ["../../packages/feature-calllog/src/index.ts"],
+      "@billfree/feature-reports": ["../../packages/feature-reports/src/index.ts"]
     }
   },
   "include": ["src", "vitest.config.ts"],
