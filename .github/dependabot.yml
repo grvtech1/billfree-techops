@@ -8,6 +8,12 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    # Majors (React 19, Vite 8, Vitest 4, …) carry breaking changes and a long
+    # migration tail — e.g. React 19 forces a recharts 3 migration. Take them
+    # deliberately, not via an auto-PR flood. Minor/patch + security still flow.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -28,3 +34,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Base-image majors (node 20 → 26, nginx 1 → 2, …) change the runtime — pin
+    # those deliberately. Patch/minor base-image updates still flow automatically.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
