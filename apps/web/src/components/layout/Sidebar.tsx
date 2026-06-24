@@ -33,6 +33,13 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'calllog',       label: 'Call Log',         icon: '📞' },
     ],
   },
+  {
+    label: 'System',
+    labelIcon: '⚙️',
+    items: [
+      { id: 'settings', label: 'Settings', icon: '⚙️' },
+    ],
+  },
 ];
 
 export default function Sidebar() {
