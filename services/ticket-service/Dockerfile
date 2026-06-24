@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ─── Build stage ──────────────────────────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /repo
 
 # Install with the root lockfile (workspaces) for reproducible builds.
@@ -13,7 +13,7 @@ RUN npm ci
 RUN npm run build --workspace services/ticket-service
 
 # ─── Runtime stage ───────────────────────────────────────────────────────────
-FROM node:20-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
