@@ -1,0 +1,53 @@
+# ApplicationSet — generates one ArgoCD Application per service for the DEV
+# environment, all into namespace `billfree-dev`. Each generated App layers the
+# dev overlay (deploy/envs/dev/values.yaml) on top of the service's base values,
+# reusing the single microservice chart. Bootstrap once:
+#   kubectl apply -f deploy/envs/dev/applicationset.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: billfree-dev
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - service: api-gateway
+          - service: auth-service
+          - service: ticket-service
+          - service: analytics-service
+          - service: calllog-service
+          - service: report-service
+          - service: web
+  template:
+    metadata:
+      name: "dev-{{.service}}"
+      labels:
+        billfree.io/env: dev
+        billfree.io/service: "{{.service}}"
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/grvtech1/billfree-techops.git
+          targetRevision: main
+          path: deploy/charts/microservice
+          helm:
+            releaseName: "{{.service}}"
+            valueFiles:
+              # base service values first, env overlay last (last wins).
+              - $values/deploy/apps/{{.service}}/values.yaml
+              - $values/deploy/envs/dev/values.yaml
+        - repoURL: https://github.com/grvtech1/billfree-techops.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: billfree-dev
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

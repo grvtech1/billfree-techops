@@ -1,0 +1,29 @@
+# ── STAGING environment overlay ───────────────────────────────────────────
+# Production-LIKE but at smaller scale — the soak/verification gate before prod.
+# Promote into here by copying a dev-tested image tag via a reviewed PR.
+image:
+  tag: "latest"            # promoted from dev — pin to the SHA you tested
+
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+metrics:
+  rules:
+    enabled: true          # alerts ON — staging should page like prod

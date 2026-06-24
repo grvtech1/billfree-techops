@@ -1,0 +1,29 @@
+# ── PROD environment overlay ──────────────────────────────────────────────
+# Full scale + strictest guardrails. Only ever receives a tag already proven in
+# staging, promoted via a reviewed PR (the one change that reaches real users).
+image:
+  tag: "latest"            # promoted from staging after soak — pin the SHA
+
+replicaCount: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 65
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+pdb:
+  enabled: true
+  minAvailable: 2          # keep quorum during voluntary disruptions
+
+metrics:
+  rules:
+    enabled: true          # alerts ON — full paging
