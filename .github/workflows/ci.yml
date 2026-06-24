@@ -61,7 +61,7 @@ jobs:
       - name: Validate docker-compose
         run: docker compose config --quiet
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false
 
