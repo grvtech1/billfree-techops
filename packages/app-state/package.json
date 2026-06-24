@@ -22,7 +22,7 @@
   "devDependencies": {
     "@types/react": "^18.3.28",
     "typescript": "^5.9.3",
-    "vite": "^5.3.4",
+    "vite": "^8.1.0",
     "zustand": "^4.5.7"
   }
 }
