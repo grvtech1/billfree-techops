@@ -16,7 +16,7 @@ RUN VITE_BACKEND="$VITE_BACKEND" VITE_GATEWAY_URL="$VITE_GATEWAY_URL" VITE_GAS_U
     npm run build --workspace apps/web
 
 # ─── Serve static assets with Nginx ──────────────────────────────────────────
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /repo/apps/web/dist /usr/share/nginx/html
 EXPOSE 80
