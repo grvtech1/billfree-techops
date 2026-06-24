@@ -28,6 +28,17 @@ export interface GatewayDeps {
  * requests are reverse-proxied to the owning service (which re-verifies the JWT
  * — defense in depth). `/auth/*` is public so clients can obtain a token.
  */
+// A dead or slow upstream must fail FAST at the edge rather than tie up gateway
+// connections for the undici default (10s connect). Bounding the connect time
+// turns an unreachable service into a quick 5xx instead of a hung request —
+// genuine production resilience, and it also keeps the proxy tests deterministic
+// across platforms (Windows holds an unresolved host open far longer than Linux).
+const PROXY_UNDICI = {
+  connect: { timeout: 2_000 },
+  headersTimeout: 30_000,
+  bodyTimeout: 30_000,
+} as const;
+
 export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: deps.logger ?? false, trustProxy: true });
 
@@ -44,6 +55,7 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
     upstream: deps.upstreams.auth,
     prefix: '/auth',
     rewritePrefix: '/auth',
+    undici: PROXY_UNDICI,
   });
 
   // Protected — JWT enforced at the edge, then proxied.
@@ -52,24 +64,28 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
     prefix: '/api/tickets',
     rewritePrefix: '/tickets',
     preHandler: auth,
+    undici: PROXY_UNDICI,
   });
   await app.register(httpProxy, {
     upstream: deps.upstreams.analytics,
     prefix: '/api/analytics',
     rewritePrefix: '/analytics',
     preHandler: auth,
+    undici: PROXY_UNDICI,
   });
   await app.register(httpProxy, {
     upstream: deps.upstreams.calllog,
     prefix: '/api/calls',
     rewritePrefix: '/calls',
     preHandler: auth,
+    undici: PROXY_UNDICI,
   });
   await app.register(httpProxy, {
     upstream: deps.upstreams.reports,
     prefix: '/api/reports',
     rewritePrefix: '/reports',
     preHandler: auth,
+    undici: PROXY_UNDICI,
   });
 
   // Public external-channel intake (WhatsApp chatbot) — API-key auth, no JWT.
@@ -80,6 +96,7 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
       prefix: '/api/intake',
       rewritePrefix: '/intake',
       preHandler: requireApiKey(deps.intakeApiKey),
+      undici: PROXY_UNDICI,
     });
   }
 
