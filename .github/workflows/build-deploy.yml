@@ -50,7 +50,7 @@ jobs:
           - { name: web, dockerfile: apps/web/Dockerfile }
           - { name: db-migrate, dockerfile: db/Dockerfile }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.IMAGE_TAG }}
 
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.build.result == 'success' && (github.event_name == 'workflow_run' || github.ref == 'refs/heads/main')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           # Admin PAT so the tag-bump can push to protected main (see header).
