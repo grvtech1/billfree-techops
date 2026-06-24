@@ -1,0 +1,135 @@
+{{- if and .Values.metrics.enabled .Values.metrics.rules.enabled }}
+{{- $fullname := include "microservice.fullname" . -}}
+{{- $svc := include "microservice.name" . -}}
+{{- $ns := .Release.Namespace -}}
+# Alerting rules for this service, evaluated by the kube-prometheus-stack
+# Prometheus and routed to Alertmanager. Collecting /metrics is only half of
+# monitoring — these rules are the half that actually pages a human. They follow
+# the RED method (Rate, Errors, Duration) plus saturation/stability signals.
+#
+# alertname is the rule TYPE; the `service` label identifies WHICH service fired,
+# so the same alertname can fire independently per service (standard practice).
+# `job` = the scrape target (this Service's name) and is present on every series
+# the target emits, so it uniformly scopes both `up` and the app's http_* metrics.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "microservice.labels" . | nindent 4 }}
+    # The kube-prometheus-stack Prometheus only selects rules carrying its release label.
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: {{ $fullname }}.red
+      rules:
+        # ── Availability: is the target even being scraped? The most fundamental
+        #    SLI — if `up == 0` the pod is crashed, unready, or has no endpoints.
+        - alert: TargetDown
+          expr: up{job="{{ $fullname }}"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: {{ $svc }}
+          annotations:
+            summary: "{{ $svc }}: target down (no metrics scraped for 2m)"
+            description: >-
+              Prometheus cannot scrape {{ $svc }} in namespace {{ $ns }}.
+              The pod may be crashed, failing readiness, or the Service has no
+              ready endpoints. Check `kubectl -n {{ $ns }} get pods,endpoints`.
+
+        # ── RED · Errors: share of 5xx responses. A spike means the service is
+        #    serving failures even if the pod is "up" — the SLI users actually feel.
+        - alert: HighErrorRate
+          expr: >-
+            sum(rate(http_request_duration_seconds_count{job="{{ $fullname }}",status_code=~"5.."}[5m]))
+              /
+            sum(rate(http_request_duration_seconds_count{job="{{ $fullname }}"}[5m]))
+              > {{ .Values.metrics.rules.errorRateThreshold }}
+          for: 5m
+          labels:
+            severity: critical
+            service: {{ $svc }}
+          annotations:
+            summary: "{{ $svc }}: 5xx error rate over {{ .Values.metrics.rules.errorRateThreshold | float64 | mulf 100 }}%"
+            description: >-
+              {{ $svc }} has served more than
+              {{ .Values.metrics.rules.errorRateThreshold | float64 | mulf 100 }}%
+              5xx responses for 5m. This burns the availability error budget —
+              check upstream dependencies (DB, downstream services) and recent rollouts.
+
+        # ── RED · Duration: p95 request latency from the histogram buckets.
+        #    Slow ≠ down, but a sustained p95 breach degrades the user experience.
+        - alert: HighLatencyP95
+          expr: >-
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{job="{{ $fullname }}"}[5m])) by (le)
+            ) > {{ .Values.metrics.rules.latencyP95Seconds }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ $svc }}
+          annotations:
+            summary: "{{ $svc }}: p95 latency over {{ .Values.metrics.rules.latencyP95Seconds }}s"
+            description: >-
+              95th-percentile request latency for {{ $svc }} has exceeded
+              {{ .Values.metrics.rules.latencyP95Seconds }}s for 5m. Check DB query
+              time, downstream calls, CPU throttling, or whether the HPA needs to scale.
+
+    - name: {{ $fullname }}.saturation
+      rules:
+        # ── Saturation: the HPA has hit its ceiling and can no longer add pods.
+        #    Beyond this point load has nowhere to go — latency/errors follow.
+        - alert: HpaMaxedOut
+          expr: >-
+            kube_horizontalpodautoscaler_status_current_replicas{namespace="{{ $ns }}",horizontalpodautoscaler="{{ $fullname }}"}
+              >=
+            kube_horizontalpodautoscaler_spec_max_replicas{namespace="{{ $ns }}",horizontalpodautoscaler="{{ $fullname }}"}
+          for: 15m
+          labels:
+            severity: warning
+            service: {{ $svc }}
+          annotations:
+            summary: "{{ $svc }}: HPA pinned at max replicas"
+            description: >-
+              {{ $svc }} has run at its maxReplicas for 15m — autoscaling is
+              exhausted. Raise maxReplicas, increase node capacity, or investigate
+              a load/efficiency regression.
+
+        # ── Saturation: container memory near its limit → OOMKill risk.
+        #    (Directly the failure mode that took down k3s on the t3.micro lab.)
+        - alert: HighMemoryUtilization
+          expr: >-
+            max(container_memory_working_set_bytes{namespace="{{ $ns }}",pod=~"{{ $fullname }}-.*",container!="",container!="POD"})
+              /
+            max(kube_pod_container_resource_limits{namespace="{{ $ns }}",pod=~"{{ $fullname }}-.*",resource="memory"})
+              > {{ .Values.metrics.rules.memoryUtilizationRatio }}
+          for: 10m
+          labels:
+            severity: warning
+            service: {{ $svc }}
+          annotations:
+            summary: "{{ $svc }}: memory over {{ .Values.metrics.rules.memoryUtilizationRatio | float64 | mulf 100 }}% of limit"
+            description: >-
+              {{ $svc }} working-set memory has stayed above
+              {{ .Values.metrics.rules.memoryUtilizationRatio | float64 | mulf 100 }}%
+              of its limit for 10m — the next spike risks an OOMKill. Raise the
+              memory limit or find the leak.
+
+    - name: {{ $fullname }}.stability
+      rules:
+        # ── Stability: containers restarting repeatedly = CrashLoopBackOff.
+        - alert: PodCrashLooping
+          expr: >-
+            increase(kube_pod_container_status_restarts_total{namespace="{{ $ns }}",pod=~"{{ $fullname }}-.*"}[15m]) > 3
+          for: 5m
+          labels:
+            severity: critical
+            service: {{ $svc }}
+          annotations:
+            summary: "{{ $svc }}: pod crash-looping"
+            description: >-
+              A {{ $svc }} container has restarted more than 3 times in 15m.
+              Inspect `kubectl -n {{ $ns }} logs --previous` and the readiness/liveness
+              probe configuration.
+{{- end }}
