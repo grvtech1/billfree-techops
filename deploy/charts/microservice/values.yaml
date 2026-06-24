@@ -46,6 +46,14 @@ autoscaling:
 metrics:
   enabled: true
   path: /metrics
+  # Alerting rules (PrometheusRule) built on the RED metrics above. Thresholds are
+  # per-service tunable — a low-traffic auth service tolerates different latency
+  # than the gateway. Disable per service with rules.enabled=false if needed.
+  rules:
+    enabled: true
+    errorRateThreshold: 0.05       # >5% 5xx for 5m → critical (availability SLO breach)
+    latencyP95Seconds: 1.0         # p95 > 1s for 5m → warning (latency SLO breach)
+    memoryUtilizationRatio: 0.9    # >90% of memory limit for 10m → warning (OOM risk)
 
 ingress:
   enabled: false

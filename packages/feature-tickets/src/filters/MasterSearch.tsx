@@ -6,7 +6,7 @@ import { useTicketStore } from '../ticketStore';
 export default function MasterSearch() {
   const { masterFilter, setMasterFilter } = useTicketStore();
   const { agents }  = useAuthStore();
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const handleSearch = (q: string) => {
     clearTimeout(searchTimer.current);

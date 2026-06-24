@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -16,35 +19,74 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
+
       - run: npm ci
 
-      - name: Shared contract tests (frontend↔backend parity)
+      - name: Shared contract tests
         run: npm run test --workspace packages/shared
 
       - name: GAS backend tests
         run: npm run test --workspace apps/gas
 
-      - name: service-common type-check
-        run: npm run typecheck --workspace packages/service-common
+      - name: Package type-checks
+        run: npm run typecheck --workspaces --if-present
 
-      - name: Microservices — type-check + test
+      - name: Microservice tests
         run: |
           for s in api-gateway auth-service ticket-service analytics-service calllog-service report-service; do
             echo "::group::$s"
-            npm run typecheck --workspace services/$s
             npm run test --workspace services/$s
             echo "::endgroup::"
           done
 
-      - name: Web — type-check + lint + test + build
+      - name: Web lint, test, build
         env:
           VITE_GAS_URL: ${{ secrets.VITE_GAS_URL }}
         run: |
-          npm run typecheck --workspace apps/web
           npm run lint --workspace apps/web
           npm run test --workspace apps/web
           npm run build --workspace apps/web
+
+  devops-validation:
+    name: Compose, Terraform, Helm validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose
+        run: docker compose config --quiet
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform fmt and validate
+        working-directory: infra/terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+
+      - uses: azure/setup-helm@v4
+
+      - name: Helm lint all service releases
+        run: |
+          for app in api-gateway auth-service ticket-service analytics-service calllog-service report-service web; do
+            echo "::group::helm lint $app"
+            helm lint deploy/charts/microservice -f "deploy/apps/$app/values.yaml"
+            echo "::endgroup::"
+          done
+
+      - name: Helm render all service releases
+        run: |
+          for app in api-gateway auth-service ticket-service analytics-service calllog-service report-service web; do
+            echo "::group::helm template $app"
+            helm template "$app" deploy/charts/microservice -f "deploy/apps/$app/values.yaml" >/tmp/"$app".yaml
+            test -s /tmp/"$app".yaml
+            echo "::endgroup::"
+          done
