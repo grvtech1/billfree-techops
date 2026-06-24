@@ -1,8 +1,6 @@
-import { useUiStore } from '../../store/uiStore';
-import { useTicketStore } from '../../store/ticketStore';
-import { useTickets } from '../../hooks/useTickets';
-import { useAuthStore } from '../../lib/auth';
-import { BACKEND } from '../../lib/apiClient';
+import { useUiStore, useAuthStore } from '@billfree/app-state';
+import { useTicketStore, useTickets } from '@billfree/feature-tickets';
+import { BACKEND } from '@billfree/api';
 
 export default function TopBar() {
   const openModal     = useUiStore(s => s.openModal);

@@ -1,4 +1,4 @@
-import { useUiStore } from '../../store/uiStore';
+import { useUiStore } from '@billfree/app-state';
 
 export default function ToastContainer() {
   const toasts      = useUiStore(s => s.toasts);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuthStore } from '../../lib/auth';
+import { useAuthStore } from '@billfree/app-state';
 
 // Demo identities recognised by auth-service's static directory.
 const DEMO_USERS = [

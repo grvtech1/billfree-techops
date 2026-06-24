@@ -16,6 +16,13 @@
   },
   "dependencies": {
     "@billfree/shared": "*",
+    "@billfree/web-core": "*",
+    "@billfree/api": "*",
+    "@billfree/ui": "*",
+    "@billfree/app-state": "*",
+    "@billfree/feature-tickets": "*",
+    "@billfree/feature-calllog": "*",
+    "@billfree/feature-reports": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "2.15.4",

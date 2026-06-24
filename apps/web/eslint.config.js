@@ -41,6 +41,18 @@ export default [
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-undef': 'off', // TS handles this; avoids false positives on DOM/global types
+      // ── Module-boundary enforcement (frontend modularization) ──
+      // The shell composes packages via their PUBLIC entry (@billfree/<pkg>).
+      // Reaching into a package's src/ internals defeats the boundary, so ban it.
+      // See docs/FRONTEND_MODULARIZATION.md for the full layer contract.
+      'no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['@billfree/*/src', '@billfree/*/src/*'],
+            message: 'Import a package via its public entry (@billfree/<pkg>), not its src/ internals.',
+          },
+        ],
+      }],
     },
   },
   {

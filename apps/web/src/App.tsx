@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
-import { useAuthStore, initCloudflareAuthBridge } from './lib/auth';
-import { useUiStore } from './store/uiStore';
-import { useTickets } from './hooks/useTickets';
+import { useAuthStore, initCloudflareAuthBridge, useUiStore } from '@billfree/app-state';
+import { useTickets } from '@billfree/feature-tickets';
+import { BACKEND } from '@billfree/api';
+import type { AppUser } from '@billfree/web-core';
 import { useVersionPoll } from './hooks/useVersionPoll';
 import { useBroadcastSync } from './hooks/useBroadcastSync';
 import AppShell from './components/layout/AppShell';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoginScreen from './components/common/LoginScreen';
-import { BACKEND } from './lib/apiClient';
-import type { AppUser } from './types';
 
 export default function App() {
   const { status, bootstrapFromCloudflare } = useAuthStore();
