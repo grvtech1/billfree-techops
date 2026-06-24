@@ -1,0 +1,30 @@
+# ── DEV environment overlay ───────────────────────────────────────────────
+# Layered ON TOP of each service's base values (deploy/apps/<svc>/values.yaml)
+# by the dev ApplicationSet. Holds only environment-WIDE settings — per-service
+# identity (name, image repo, env vars, ingress host) stays in the base file.
+#
+# image.tag here is the PROMOTION UNIT: dev tracks the newest build (CI bumps it);
+# staging and prod are promoted by copying a known-good tag into their overlay
+# via a reviewed PR. One tag per environment = the whole release moves together.
+image:
+  tag: "latest"            # dev = newest; CI can pin this to the built SHA
+
+replicaCount: 1            # smallest footprint for a shared / free-tier cluster
+
+autoscaling:
+  enabled: false           # no HPA churn while experimenting in dev
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 192Mi
+
+pdb:
+  enabled: false           # single replica → a PDB would block node drains
+
+metrics:
+  rules:
+    enabled: false         # no paging on dev experiments (metrics still scraped)
