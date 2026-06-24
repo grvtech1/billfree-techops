@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Tiny migration runner image — used by docker-compose and the K8s pre-sync Job.
-FROM node:20-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /db
 ENV NODE_ENV=production
 COPY db/package.json ./
