@@ -14,7 +14,7 @@ interface Options {
  * - Resets backoff on tab re-focus or user click/keydown.
  */
 export function useVersionPoll({ currentVersion, onNewVersion }: Options) {
-  const timerRef    = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const backoffRef  = useRef(VERSION_POLL_MIN_MS);
   const versionRef  = useRef(currentVersion);
   const cbRef       = useRef(onNewVersion);
