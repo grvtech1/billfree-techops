@@ -35,7 +35,7 @@ autoscaling:
 ingress:
   enabled: true
   className: nginx
-  host: billfree.example
+  host: ""
   path: /
   pathType: Prefix
 
