@@ -202,6 +202,7 @@ export interface MonthlyReport {
   dailyTrend:         Array<{ day: number; created: number; completed: number }>;
   hourlyDistribution: Array<{ hour: number; label: string; count: number }>;
   peakHour: string;
+  concernTrends?:     Array<{ concern: string; current: number; previous: number; trend: 'rising' | 'falling' | 'stable' }>;
   recommendations:    Array<{ priority: string; category: string; icon: string; message: string }>;
   achievements:       Array<{ icon: string; text: string }>;
   tickets: Array<{

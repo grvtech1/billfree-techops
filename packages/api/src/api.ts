@@ -124,6 +124,8 @@ function resolveMock<T>(action: string, _params: Record<string, unknown>): T {
       return { success: true, data: [] } as unknown as T;
     case 'getcallhistory':
       return { success: true, data: [], pagination: { page: 1, pageSize: 25, totalRows: 0, totalPages: 0 } } as unknown as T;
+    case 'sendmonthlyreportemail':
+      return { success: true, message: 'Demo mode — report sent to mock recipients', mode: 'fallback' } as unknown as T;
     default:
       return { success: true, data: null } as unknown as T;
   }
@@ -243,6 +245,12 @@ const gasApi: BackendApi = {
     post<{ success: boolean; report: MonthlyReport; error?: string }>(
       'getMonthlyReport',
       { config: { month: p.month, year: p.year, idToken: p.token }, token: p.token }
+    ),
+
+  emailMonthlyReport: (p: { month: number; year: number; recipients?: string; token: string }) =>
+    post<{ success: boolean; message: string; mode?: string; html?: string; error?: string }>(
+      'sendMonthlyReportEmail',
+      { month: p.month, year: p.year, recipients: p.recipients, token: p.token }
     ),
 
   updateHistory: (p: { ticketId?: string; page?: number; pageSize?: number; token: string }) =>

@@ -5,6 +5,7 @@ import { buildServer, type Directory } from './server.js';
 const JWT: JwtConfig = { secret: 'test-secret-at-least-16-chars', issuer: 'billfree-techops' };
 const directory: Directory = {
   lookup: (email) => (email === 'agent1@billfree.in' ? { name: 'Agent One', role: 'agent' } : null),
+  listAll: () => [{ name: 'Agent One', email: 'agent1@billfree.in', role: 'agent' }],
 };
 
 let app: ReturnType<typeof buildServer>;

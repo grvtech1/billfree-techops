@@ -22,6 +22,8 @@ export interface TicketRepository {
   getById(id: string): Promise<Ticket | null>;
   create(t: Ticket): Promise<Ticket>;
   update(id: string, patch: { status?: string; reason?: string; pos?: string }): Promise<Ticket | null>;
+  /** [GAP-20] Returns the newest ticket timestamp (epoch-ms) as a version counter. */
+  latestVersion(): Promise<number>;
 }
 
 const COLUMNS = `
@@ -77,6 +79,14 @@ export class PgTicketRepository implements TicketRepository {
       ],
     );
     return res.rows[0];
+  }
+
+  /** [GAP-20] Max created_at as epoch-ms — used by the SPA version-polling. */
+  async latestVersion(): Promise<number> {
+    const res = await this.pool.query<{ v: string }>(
+      `SELECT COALESCE(EXTRACT(EPOCH FROM MAX(created_at)) * 1000, 0)::bigint AS v FROM tickets`,
+    );
+    return Number(res.rows[0]?.v ?? 0);
   }
 
   async update(id: string, patch: { status?: string; reason?: string; pos?: string }): Promise<Ticket | null> {
@@ -151,6 +161,19 @@ export class PgAuditRepository implements AuditRepository {
       [ticketId, pageSize, offset],
     );
     return { rows: rowsRes.rows, total: Number(countRes.rows[0]?.count ?? 0) };
+  }
+
+  /** [GAP-21] Delete audit events older than `retentionDays` (default 90). */
+  async archiveOldEvents(retentionDays = 90): Promise<number> {
+    const res = await this.pool.query<{ count: string }>(
+      `WITH deleted AS (
+         DELETE FROM audit_events
+         WHERE created_at < NOW() - ($1 || ' days')::interval
+         RETURNING 1
+       ) SELECT COUNT(*)::int AS count FROM deleted`,
+      [retentionDays],
+    );
+    return Number(res.rows[0]?.count ?? 0);
   }
 }
 

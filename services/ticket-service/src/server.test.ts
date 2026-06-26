@@ -39,6 +39,9 @@ class FakeRepo implements TicketRepository {
     this.store.set(id, updated);
     return updated;
   }
+  async latestVersion(): Promise<number> {
+    return Date.now();
+  }
 }
 
 // In-memory audit store mirroring PgAuditRepository's contract.

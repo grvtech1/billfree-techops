@@ -109,8 +109,10 @@ export function normaliseTicket(raw: RawTicket): Ticket {
 
   const status = normaliseStatus(raw.status ?? raw['Status'] ?? '');
   const rq = raw.reasonQuality ?? raw._reasonQuality ?? reasonQuality(reason);
-  // Legacy: "Invalid Closed" = closed ticket with very short/empty reason
-  const invalidClosed = raw.invalidClosed ?? (status === 'Closed' && (!reason || reason.trim().length < 10));
+  // [GAP-08] Canonical rule: GAS Reports.gs L131-137 uses age-based check.
+  // A ticket closed within CONFIG.MIN_CLOSURE_DAYS (7) is "invalid closed".
+  const MIN_CLOSURE_DAYS = 7;
+  const invalidClosed = raw.invalidClosed ?? (status === 'Closed' && ageDays < MIN_CLOSURE_DAYS);
 
   const ticket: Ticket = {
     id:            raw.id ?? raw['Ticket ID'] ?? '',

@@ -12,20 +12,26 @@ import {
   type JwtConfig,
   type Role,
 } from '@billfree/service-common';
+import { verifyGoogleIdToken } from './googleAuth.js';
 
 export interface Directory {
   lookup(email: string): { name: string; role: Role } | null;
+  listAll(): Array<{ name: string; email: string; role: Role }>;
 }
 
 const TokenRequest = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(120).optional(),
+  // [GAP-01] Google ID token — required in production, optional in dev.
+  googleIdToken: z.string().optional(),
 });
 
 export interface AuthServerDeps {
   jwt: JwtConfig;
   directory: Directory;
   tokenTtlSeconds?: number;
+  // [GAP-01] Accepted Google OAuth Client IDs (from GOOGLE_CLIENT_IDS env var).
+  googleClientIds?: string[];
   logger?: FastifyBaseLogger | boolean;
 }
 
@@ -35,14 +41,36 @@ export function buildServer(deps: AuthServerDeps): FastifyInstance {
   registerMetrics(app, 'auth-service');
   registerHealth(app);
 
-  // Issue an access token for an authorized identity. In production this would
-  // verify a Google ID token; for the showcase we authorize against the
-  // directory and mint the same JWT the gateway + services validate.
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // [GAP-01] Issue an access token for an authorized identity.
+  // Production: verify the Google ID token first, then authorize against directory.
+  // Development: allow bare email login for iteration against mock data.
   app.post('/auth/token', async (req) => {
-    const { email, name } = TokenRequest.parse(req.body);
-    const found = deps.directory.lookup(email.toLowerCase());
+    const { email, name, googleIdToken } = TokenRequest.parse(req.body);
+    const normalizedEmail = email.toLowerCase();
+
+    // ── Production: require Google OAuth verification ────────────────────
+    if (isProduction) {
+      if (!googleIdToken) {
+        throw unauthorized('Google ID token is required in production');
+      }
+      const claims = await verifyGoogleIdToken(
+        googleIdToken,
+        deps.googleClientIds ?? [],
+      ).catch((e) => {
+        throw unauthorized(`Google token verification failed: ${(e as Error).message}`);
+      });
+      // The verified email must match the requested email.
+      if (claims.email.toLowerCase() !== normalizedEmail) {
+        throw unauthorized('Token email does not match requested email');
+      }
+    }
+
+    // ── Directory authorization (both prod and dev) ────────────────────
+    const found = deps.directory.lookup(normalizedEmail);
     if (!found) throw unauthorized('Email not authorized');
-    const user: AuthUser = { sub: email.toLowerCase(), name: name ?? found.name, role: found.role };
+    const user: AuthUser = { sub: normalizedEmail, name: name ?? found.name, role: found.role };
     const token = await signAccessToken(user, deps.jwt, deps.tokenTtlSeconds ?? 3600);
     return ok({ token, user });
   });
@@ -54,6 +82,14 @@ export function buildServer(deps: AuthServerDeps): FastifyInstance {
     if (!token) throw unauthorized();
     const user = await verifyAccessToken(token, deps.jwt);
     return ok({ user });
+  });
+
+  // [GAP-04] Return the agent directory for the Create Ticket dropdown.
+  // Mirrors GAS Auth.gs getAgentList() — public because the GAS version
+  // was callable from the frontend on bootstrap without auth.
+  app.get('/auth/agents', async () => {
+    const agents = deps.directory.listAll();
+    return ok({ agents, count: agents.length });
   });
 
   return app;

@@ -15,4 +15,10 @@ const USERS: Record<string, { name: string; role: Role }> = {
 
 export const staticDirectory: Directory = {
   lookup: (email) => USERS[email] ?? null,
+  listAll: () =>
+    Object.entries(USERS).map(([email, info]) => ({
+      name: info.name,
+      email,
+      role: info.role,
+    })),
 };

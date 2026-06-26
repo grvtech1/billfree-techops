@@ -27,3 +27,4 @@ export { default as HistoryView }    from './views/HistoryView';
 export { default as MasterDbView }   from './views/MasterDbView';
 export { default as AnalyticsView }  from './views/AnalyticsView';
 export { default as TeamReportView } from './views/TeamReportView';
+export { default as SettingsView }   from './views/SettingsView';

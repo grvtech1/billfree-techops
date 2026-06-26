@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppUser, Agent } from '@billfree/web-core';
-import { fetchIdentity, gatewayLogin } from '@billfree/api';
+import { fetchIdentity, gatewayLogin, gatewayFetchAgents } from '@billfree/api';
 
 const SESSION_KEY = 'bt_session';
 
@@ -68,6 +68,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { user } = await gatewayLogin(email, name);
       localStorage.setItem(SESSION_KEY, JSON.stringify(user));
       set({ user, status: 'authenticated' });
+      // [GAP-04] Fetch agent directory for the Create Ticket dropdown (best-effort).
+      try {
+        const agents = (await gatewayFetchAgents()) as Agent[];
+        set({ agents });
+      } catch (e) {
+        console.warn('[Auth] agent directory fetch failed (non-fatal):', e);
+      }
     } catch (e) {
       console.error('[Auth] gateway login failed:', e);
       set({ user: null, status: 'unauthenticated' });
@@ -81,6 +88,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const raw = localStorage.getItem(SESSION_KEY);
       if (raw) {
         set({ user: JSON.parse(raw) as AppUser, status: 'authenticated' });
+        // [GAP-04] Re-populate agents after session restore (best-effort, background).
+        gatewayFetchAgents()
+          .then((agents) => set({ agents: agents as Agent[] }))
+          .catch(() => { /* non-fatal */ });
         return;
       }
     } catch {

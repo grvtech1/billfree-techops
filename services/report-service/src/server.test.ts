@@ -106,3 +106,44 @@ describe('GET /reports/monthly', () => {
     expect(metrics.body).toContain('http_request_duration_seconds');
   });
 });
+
+describe('POST /reports/monthly/email', () => {
+  it('rejects unauthenticated requests (401)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/reports/monthly/email',
+      payload: { month: 6, year: 2026 },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('rejects agent role (403)', async () => {
+    const agentToken = await signAccessToken(
+      { sub: 'agent@billfree.in', name: 'Agent', role: 'agent' },
+      JWT,
+    );
+    const res = await app.inject({
+      method: 'POST',
+      url: '/reports/monthly/email',
+      headers: auth(agentToken),
+      payload: { month: 6, year: 2026 },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('allows manager and falls back to mock email generation when no SMTP is configured', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/reports/monthly/email',
+      headers: auth(token),
+      payload: { month: 6, year: 2026 },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.success).toBe(true);
+    expect(body.mode).toBe('fallback');
+    expect(body.html).toContain('linear-gradient(135deg, #4F46E5, #7C3AED)');
+    expect(body.html).toContain('June 2026 — Operations Report');
+  });
+});
+

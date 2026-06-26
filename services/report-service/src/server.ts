@@ -15,6 +15,16 @@ export interface ServerDeps {
   readiness?: () => Promise<boolean>;
   // Pass a pino logger (assignable to FastifyBaseLogger) or `false` in tests.
   logger?: FastifyBaseLogger | boolean;
+  emailConfig?: {
+    geminiApiKey?: string;
+    smtpHost?: string;
+    smtpPort?: number;
+    smtpUser?: string;
+    smtpPass?: string;
+    smtpSecure?: boolean;
+    smtpFrom?: string;
+    adminEmails?: string;
+  };
 }
 
 /**
@@ -28,7 +38,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   registerErrorHandler(app);
   registerMetrics(app, deps.serviceName ?? 'report-service');
   registerHealth(app, { readiness: deps.readiness });
-  registerReportRoutes(app, { repo: deps.repo, jwt: deps.jwt });
+  registerReportRoutes(app, { repo: deps.repo, jwt: deps.jwt, emailConfig: deps.emailConfig });
 
   return app;
 }
+

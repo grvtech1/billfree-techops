@@ -29,6 +29,7 @@ export interface BackendApi {
   callHistory(filters: unknown, token: string): Promise<{ success: boolean; data?: unknown[]; pagination?: unknown }>;
   logCallEvent(data: unknown, csrfToken: string, token: string): Promise<{ success: boolean; eventId?: string }>;
   monthlyReport(p: { month: number; year: number; token: string }): Promise<{ success: boolean; report?: MonthlyReport; error?: string }>;
+  emailMonthlyReport(p: { month: number; year: number; recipients?: string; token: string }): Promise<{ success: boolean; message: string; mode?: string; html?: string; error?: string }>;
   updateHistory(p: { ticketId?: string; page?: number; pageSize?: number; token: string }): Promise<AuditLogResponse>;
   exportTickets(filters: unknown, csrfToken: string, token: string): Promise<{ success: boolean; csv?: string }>;
 }

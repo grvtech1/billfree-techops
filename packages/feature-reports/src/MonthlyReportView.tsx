@@ -38,6 +38,28 @@ export default function MonthlyReportView() {
   const [report, setReport] = useState<MonthlyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const handleSendEmail = async () => {
+    if (!user) return;
+    setSendingEmail(true);
+    try {
+      const res = await api.emailMonthlyReport({ month, year, token: user.token });
+      if (res.success) {
+        showToast(res.message, 'success');
+        if (res.mode === 'fallback') {
+          showToast('Mock email generated (fallback mode). Check browser console for HTML preview.', 'info');
+          console.info('[Mock Email HTML Preview]\n', res.html);
+        }
+      } else {
+        showToast(res.error || 'Failed to send email report.', 'error');
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Failed to send email report', 'error');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
 
   const loadReport = async () => {
     if (!user) return;
@@ -130,6 +152,19 @@ export default function MonthlyReportView() {
           >
             {loading ? '⏳ Generating…' : '📊 Generate'}
           </button>
+
+          {user && (user.role === 'admin' || user.role === 'manager') && (
+            <button
+              className="btn btn-primary"
+              onClick={handleSendEmail}
+              disabled={loading || sendingEmail || !report}
+              title="Email report to admin recipients"
+              style={{ marginLeft: 8, backgroundColor: '#7C3AED', borderColor: '#7C3AED' }}
+            >
+              {sendingEmail ? '⏳ Sending…' : '✉ Email Report'}
+            </button>
+          )}
+
           <button
             className="btn btn-ghost ml-auto"
             onClick={handleExportCsv}

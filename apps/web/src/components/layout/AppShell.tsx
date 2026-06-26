@@ -14,6 +14,7 @@ const AnalyticsView      = lazy(() => import('@billfree/feature-tickets').then(m
 const HistoryView        = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.HistoryView })));
 const CallLogView        = lazy(() => import('@billfree/feature-calllog').then(m => ({ default: m.CallLogView })));
 const MonthlyReportView  = lazy(() => import('@billfree/feature-reports').then(m => ({ default: m.MonthlyReportView })));
+const SettingsView       = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.SettingsView })));
 
 function ViewSkeleton() {
   return (
@@ -58,6 +59,9 @@ export default function AppShell() {
             </div>
             <div className={activeView === 'monthlyreport' ? 'view-active' : 'view-hidden'}>
               <MonthlyReportView />
+            </div>
+            <div className={activeView === 'settings' ? 'view-active' : 'view-hidden'}>
+              <SettingsView />
             </div>
           </Suspense>
         </main>
