@@ -81,6 +81,7 @@ export interface MonthlyReport {
   dailyTrend: Array<{ day: number; created: number; completed: number }>;
   hourlyDistribution: Array<{ hour: number; label: string; count: number }>;
   peakHour: string;
+  concernTrends: Array<{ concern: string; current: number; previous: number; trend: 'rising' | 'falling' | 'stable' }>;
   recommendations: Array<{ priority: string; category: string; icon: string; message: string }>;
   achievements: Array<{ icon: string; text: string }>;
   tickets: Array<{
@@ -111,8 +112,8 @@ export function agentName(email: string): string {
 function gradeFor(score: number): Grade {
   if (score >= 90) return 'A+';
   if (score >= 80) return 'A';
-  if (score >= 65) return 'B';
-  if (score >= 50) return 'C';
+  if (score >= 70) return 'B'; // [GAP-13] GAS uses 70, not 65
+  if (score >= 60) return 'C'; // [GAP-13] GAS uses 60, not 50
   return 'D';
 }
 
@@ -134,7 +135,7 @@ function istParts(iso: string): { dow: number; hour: number; day: number; ms: nu
  */
 export function buildMonthlyReport(
   tickets: ReportTicket[],
-  opts: { month: number; year: number; generatedBy: string; now: Date },
+  opts: { month: number; year: number; generatedBy: string; now: Date; previousMonthTickets?: ReportTicket[] },
 ): MonthlyReport {
   const { month, year, generatedBy, now } = opts;
   const total = tickets.length;
@@ -144,13 +145,22 @@ export function buildMonthlyReport(
   const is = (t: ReportTicket, s: string): boolean => t.status === s;
   const isPending = (t: ReportTicket): boolean =>
     t.status === 'Not Completed' || t.status === 'Pending' || t.status === 'In Progress';
-  const hasReason = (t: ReportTicket): boolean => Boolean(t.reason && t.reason.trim());
+  // [GAP-11] GAS Reports.gs L170 requires reason.length >= 10 for withReason credit.
+  const hasReason = (t: ReportTicket): boolean => Boolean(t.reason && t.reason.trim().length >= 10);
 
   const completed = tickets.filter((t) => is(t, 'Completed')).length;
   const pending = tickets.filter(isPending).length;
   const closed = tickets.filter((t) => is(t, 'Closed')).length;
   const cantDo = tickets.filter((t) => is(t, "Can't Do")).length;
-  const invalidClosed = tickets.filter((t) => is(t, 'Closed') && !hasReason(t)).length;
+  // [GAP-08] Canonical rule: GAS Reports.gs L131-137 uses age-based check.
+  // A ticket closed within MIN_CLOSURE_DAYS (7) is "invalid closed".
+  const MIN_CLOSURE_DAYS = 7;
+  const isInvalidClosed = (t: ReportTicket): boolean => {
+    if (t.status !== 'Closed') return false;
+    const age = Math.max(0, (now.getTime() - (Date.parse(t.createdAt) || now.getTime())) / 86_400_000);
+    return age < MIN_CLOSURE_DAYS;
+  };
+  const invalidClosed = tickets.filter(isInvalidClosed).length;
   const withReasonTotal = tickets.filter(hasReason).length;
 
   const avgAgeDays =
@@ -166,9 +176,11 @@ export function buildMonthlyReport(
   const resolutionRate = pct(completed + closed, total);
   const cantDoRate = pct(cantDo, total);
   const reasonRate = pct(withReasonTotal, total);
+  // [GAP-09] GAS Reports.gs L219-226: score = completionRate*0.6 + (100-cantDoRate)*0.2 + (100-pendingRate)*0.2
+  const pendingRate = pct(pending, total);
   const performanceScore = Math.max(
     0,
-    Math.min(100, Math.round(completionRate * 0.6 + resolutionRate * 0.2 + reasonRate * 0.2)),
+    Math.min(100, Math.round(completionRate * 0.6 + (100 - cantDoRate) * 0.2 + (100 - pendingRate) * 0.2)),
   );
 
   // ── Per-agent rankings ──────────────────────────────────────────────────────
@@ -183,9 +195,11 @@ export function buildMonthlyReport(
       const c = list.filter((t) => is(t, 'Completed')).length;
       const cl = list.filter((t) => is(t, 'Closed')).length;
       const cd = list.filter((t) => is(t, "Can't Do")).length;
-      const inv = list.filter((t) => is(t, 'Closed') && !hasReason(t)).length;
+      const inv = list.filter(isInvalidClosed).length;
       const wr = list.filter(hasReason).length;
-      const score = c * 10 + cl * 4 - cd * 5 - inv * 3;
+      // [GAP-10] GAS Reports.gs L239-241: completed*10 + closed*5 - cantDo*5 - invalidClosed*10 - pending*3
+      const p = list.filter(isPending).length;
+      const score = c * 10 + cl * 5 - cd * 5 - inv * 10 - p * 3;
       return {
         name: agentName(email),
         total: list.length,
@@ -240,11 +254,8 @@ export function buildMonthlyReport(
     created: dayCreated[i + 1],
     completed: dayCompleted[i + 1],
   }));
-  const hourLabel = (h: number): string => {
-    const ampm = h < 12 ? 'AM' : 'PM';
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return `${h12}${ampm}`;
-  };
+  // [GAP-23] GAS Reports.gs L315: 24-hour format 'HH:00' (e.g. '09:00', '14:00')
+  const hourLabel = (h: number): string => `${String(h).padStart(2, '0')}:00`;
   const hourlyDistribution = hourCounts.map((count, hour) => ({ hour, label: hourLabel(hour), count }));
   const peakHourIdx = hourCounts.reduce((best, c, i) => (c > hourCounts[best] ? i : best), 0);
   const peakHour = total > 0 ? hourLabel(peakHourIdx) : '—';
@@ -255,11 +266,38 @@ export function buildMonthlyReport(
   const slowestDay = dowRanked[dowRanked.length - 1] ?? { day: '—', count: 0 };
   const topPerformerRow = [...agentRankings].sort((a, b) => b.completed - a.completed)[0];
   const highestRateRow = [...agentRankings]
-    .filter((a) => a.total >= 3)
+    .filter((a) => a.total >= 5) // [GAP-12] GAS Reports.gs L339 requires total >= 5
     .sort((a, b) => b.completionRate - a.completionRate)[0];
   const topConcern = topConcerns[0]
     ? { name: topConcerns[0].concern, count: topConcerns[0].count, percentage: topConcerns[0].percentage }
     : { name: '—', count: 0, percentage: 0 };
+
+  // ── [GAP-14] Concern trends vs. previous month ──────────────────────────────
+  // Mirrors GAS Reports.gs L261-289: computes rising/falling/stable per concern.
+  type ConcernTrend = { concern: string; current: number; previous: number; trend: 'rising' | 'falling' | 'stable' };
+  const concernTrends: ConcernTrend[] = [];
+  if (opts.previousMonthTickets && opts.previousMonthTickets.length > 0) {
+    // Build current month concern map from tickets
+    const currentConcernMap = new Map<string, number>();
+    for (const t of tickets) {
+      const c = (t.concern || '—').trim() || '—';
+      currentConcernMap.set(c, (currentConcernMap.get(c) ?? 0) + 1);
+    }
+    const prevConcernMap = new Map<string, number>();
+    for (const t of opts.previousMonthTickets) {
+      const c = (t.concern || '—').trim() || '—';
+      prevConcernMap.set(c, (prevConcernMap.get(c) ?? 0) + 1);
+    }
+    const allConcerns = new Set([...currentConcernMap.keys(), ...prevConcernMap.keys()]);
+    for (const c of allConcerns) {
+      const current = currentConcernMap.get(c) ?? 0;
+      const previous = prevConcernMap.get(c) ?? 0;
+      const trend: 'rising' | 'falling' | 'stable' =
+        current > previous ? 'rising' : current < previous ? 'falling' : 'stable';
+      concernTrends.push({ concern: c, current, previous, trend });
+    }
+    concernTrends.sort((a, b) => b.current - a.current);
+  }
 
   const insightRecs: Array<{ priority: string; icon: string; message: string }> = [];
   if (cantDoRate > 15) insightRecs.push({ priority: 'HIGH', icon: '🚫', message: `Can't-Do rate is ${cantDoRate}% — review intake quality.` });
@@ -316,6 +354,7 @@ export function buildMonthlyReport(
     dailyTrend,
     hourlyDistribution,
     peakHour,
+    concernTrends,
     recommendations,
     achievements,
     tickets: tickets

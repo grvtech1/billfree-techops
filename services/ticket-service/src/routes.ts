@@ -5,6 +5,8 @@ import {
   notFound,
   requireAuth,
   unauthorized,
+  forbidden,
+  validationFailed,
   type JwtConfig,
 } from '@billfree/service-common';
 import {
@@ -92,6 +94,27 @@ export function registerTicketRoutes(
     if (!current) throw notFound(`Ticket ${id} not found`);
 
     const patch: { status?: string; reason?: string; pos?: string } = {};
+
+    // ── [GAP-05] Closure authority enforcement (mirrors GAS updateTicketFull) ──
+    // Only admins may set status to 'Closed', and a follow-up reason of at least
+    // 5 characters is mandatory. This replicates the GAS guard exactly.
+    if (body.status === 'Closed') {
+      if (user.role !== 'admin') {
+        await recordAudit({
+          ticketId: id,
+          actor: user.sub,
+          action: 'CLOSE_ATTEMPT_DENIED',
+          previousStatus: current.status,
+          newStatus: 'Closed',
+          severity: 'WARNING',
+        });
+        throw forbidden('Only admin can close tickets');
+      }
+      if (!body.appendReason || body.appendReason.trim().length < 5) {
+        throw validationFailed('Closure requires a follow-up reason (min 5 characters)');
+      }
+    }
+
     if (body.status) patch.status = body.status;
     if (body.pos) patch.pos = body.pos;
     if (body.appendReason) {
@@ -114,5 +137,13 @@ export function registerTicketRoutes(
       durationMs,
     });
     return ok(updated);
+  });
+
+  // [GAP-20] Version counter — the SPA polls this to detect mutations and trigger
+  // refetches (mirrors GAS DATA_VERSION in ScriptProperties). Returns the newest
+  // ticket timestamp as epoch-ms so polling detects any INSERT/UPDATE.
+  app.get('/tickets/version', { preHandler: requireAuth(jwt) }, async () => {
+    const res = await repo.latestVersion();
+    return ok({ version: res });
   });
 }

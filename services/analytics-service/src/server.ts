@@ -40,5 +40,31 @@ export function buildServer(deps: AnalyticsServerDeps): FastifyInstance {
     ok(await deps.repo.agentLeaderboard()),
   );
 
+  // ── [GAP-16] Missing analytics endpoints ────────────────────────────────
+  const LimitQuery = z.object({ limit: z.coerce.number().int().min(1).max(50).default(10) });
+
+  app.get('/analytics/top-mids-same', { preHandler: auth }, async (req) => {
+    const { limit } = LimitQuery.parse(req.query);
+    return ok(await deps.repo.topMidsSame(limit));
+  });
+
+  app.get('/analytics/top-mids-diff', { preHandler: auth }, async (req) => {
+    const { limit } = LimitQuery.parse(req.query);
+    return ok(await deps.repo.topMidsDiff(limit));
+  });
+
+  app.get('/analytics/repeat-customers', { preHandler: auth }, async (req) => {
+    const { limit } = LimitQuery.parse(req.query);
+    return ok(await deps.repo.repeatCustomers(limit));
+  });
+
+  app.get('/analytics/concern-trend', { preHandler: auth }, async () =>
+    ok(await deps.repo.concernTrend()),
+  );
+
+  app.get('/analytics/agent-matrix', { preHandler: auth }, async () =>
+    ok(await deps.repo.agentMatrix()),
+  );
+
   return app;
 }

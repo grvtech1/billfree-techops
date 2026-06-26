@@ -44,7 +44,24 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
 
   registerErrorHandler(app);
   await app.register(cors, { origin: deps.corsOrigins ?? true, credentials: true });
-  await app.register(rateLimit, { max: deps.rateLimitMax ?? 100, timeWindow: '1 minute' });
+  // [GAP-03] Per-user rate limiting (GAS Auth.gs uses 30 req/min per user via UserCache).
+  // Extract the JWT `sub` claim to key on authenticated user; fall back to IP for
+  // unauthenticated routes (e.g. /auth/token).
+  await app.register(rateLimit, {
+    max: deps.rateLimitMax ?? 30,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => {
+      const header = req.headers.authorization ?? '';
+      if (header.startsWith('Bearer ')) {
+        try {
+          // Decode JWT payload without verification (auth preHandler verifies later).
+          const payload = JSON.parse(Buffer.from(header.slice(7).split('.')[1], 'base64url').toString());
+          if (payload.sub) return `user:${payload.sub}`;
+        } catch { /* fall through to IP */ }
+      }
+      return `ip:${req.ip}`;
+    },
+  });
   registerMetrics(app, 'api-gateway');
   registerHealth(app);
 
@@ -98,7 +115,31 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
       preHandler: requireApiKey(deps.intakeApiKey),
       undici: PROXY_UNDICI,
     });
+
+    // [GAP-06] CDR webhook proxy → calllog-service /calls/webhook, API-key auth.
+    await app.register(httpProxy, {
+      upstream: deps.upstreams.calllog,
+      prefix: '/api/calls/webhook',
+      rewritePrefix: '/calls/webhook',
+      preHandler: requireApiKey(deps.intakeApiKey),
+      undici: PROXY_UNDICI,
+    });
   }
+  // [GAP-22] Client error reporting — replaces GAS 'logclienterror' action.
+  // The SPA's ErrorBoundary posts errors here; they're emitted via structured
+  // logging (picked up by K8s / Cloud Logging) for observability.
+  app.post('/api/errors', async (req) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    app.log.error({
+      event: 'CLIENT_ERROR',
+      context: String(body.context ?? '').slice(0, 200),
+      message: String(body.message ?? '').slice(0, 1000),
+      stack: String(body.stack ?? '').slice(0, 2000),
+      url: String(body.url ?? '').slice(0, 500),
+      userAgent: String(body.userAgent ?? '').slice(0, 300),
+    });
+    return { success: true };
+  });
 
   return app;
 }

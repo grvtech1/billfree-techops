@@ -12,6 +12,11 @@ const repo: AnalyticsRepository = {
   ],
   topPos: async (limit) => [{ pos: 'Tally', count: 2 }].slice(0, limit),
   agentLeaderboard: async () => [{ agentEmail: 'agent1@billfree.in', total: 4, completed: 3 }],
+  topMidsSame: async () => [],
+  topMidsDiff: async () => [],
+  repeatCustomers: async () => [],
+  concernTrend: async () => [],
+  agentMatrix: async () => [],
 };
 
 let app: ReturnType<typeof buildServer>;

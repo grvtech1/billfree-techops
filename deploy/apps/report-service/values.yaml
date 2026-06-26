@@ -9,6 +9,47 @@ env:
     value: report-service
   - name: PORT
     value: "8080"
+  # [GAP-15] SMTP + Gemini credentials for monthly report email dispatch.
+  # Values sourced from the shared secret; env vars fall back to safe defaults
+  # in code if the keys are absent (fallback mode / no AI narrative).
+  - name: GEMINI_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: billfree-app-secrets
+        key: GEMINI_API_KEY
+        optional: true
+  - name: SMTP_HOST
+    valueFrom:
+      secretKeyRef:
+        name: billfree-app-secrets
+        key: SMTP_HOST
+        optional: true
+  - name: SMTP_PORT
+    valueFrom:
+      secretKeyRef:
+        name: billfree-app-secrets
+        key: SMTP_PORT
+        optional: true
+  - name: SMTP_USER
+    valueFrom:
+      secretKeyRef:
+        name: billfree-app-secrets
+        key: SMTP_USER
+        optional: true
+  - name: SMTP_PASS
+    valueFrom:
+      secretKeyRef:
+        name: billfree-app-secrets
+        key: SMTP_PASS
+        optional: true
+  - name: SMTP_FROM
+    value: "reports@billfree.in"
+  - name: ADMIN_EMAILS
+    valueFrom:
+      secretKeyRef:
+        name: billfree-app-secrets
+        key: ADMIN_EMAILS
+        optional: true
 envFrom:
   # JWT_SECRET, JWT_ISSUER, DATABASE_URL (bootstrap secret — see deploy README).
   - secretRef:
