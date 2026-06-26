@@ -41,7 +41,8 @@ export function buildServer(deps: AuthServerDeps): FastifyInstance {
   registerMetrics(app, 'auth-service');
   registerHealth(app);
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Enforce Google Auth in production, unless explicitly bypassed via env var (e.g. for testing/demo).
+  const requireGoogleAuth = process.env.NODE_ENV === 'production' && process.env.REQUIRE_GOOGLE_AUTH !== 'false';
 
   // [GAP-01] Issue an access token for an authorized identity.
   // Production: verify the Google ID token first, then authorize against directory.
@@ -51,7 +52,7 @@ export function buildServer(deps: AuthServerDeps): FastifyInstance {
     const normalizedEmail = email.toLowerCase();
 
     // ── Production: require Google OAuth verification ────────────────────
-    if (isProduction) {
+    if (requireGoogleAuth) {
       if (!googleIdToken) {
         throw unauthorized('Google ID token is required in production');
       }
