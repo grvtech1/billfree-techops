@@ -1,7 +1,7 @@
 nameOverride: calllog-service
 image:
   repository: ghcr.io/grvtech1/billfree-techops/calllog-service
-  tag: "cd2714bf597a7e80a0684fef94c653664d4fe80d"
+  tag: "cd2714bd9882f95a10d9f0239c7c5c954a1478cf"
 replicaCount: 2
 containerPort: 8080
 env:
@@ -18,5 +18,6 @@ autoscaling:
   minReplicas: 2
   maxReplicas: 4
   targetCPUUtilizationPercentage: 70
+
 
 
