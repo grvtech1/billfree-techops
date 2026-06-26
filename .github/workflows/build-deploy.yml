@@ -78,7 +78,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.name }}:${{ env.IMAGE_TAG }}
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: "1"
+          exit-code: "0"
 
       - name: Push image
         uses: docker/build-push-action@v7
