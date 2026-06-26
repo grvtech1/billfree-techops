@@ -12,6 +12,7 @@ metadata:
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
+    {{- if .Values.ingress.host }}
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
@@ -22,4 +23,15 @@ spec:
                 name: {{ include "microservice.fullname" . }}
                 port:
                   number: {{ .Values.service.port }}
+    {{- else }}
+    - http:
+        paths:
+          - path: {{ .Values.ingress.path }}
+            pathType: {{ .Values.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "microservice.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+    {{- end }}
 {{- end }}
