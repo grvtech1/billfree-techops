@@ -1,96 +1,130 @@
+import { useState } from 'react';
+import {
+  LayoutDashboard, Trophy, BarChart3, Database,
+  History, FileBarChart2, Phone, Settings2,
+  Zap, ChevronLeft, Moon, Sun,
+  type LucideIcon,
+} from 'lucide-react';
 import { useUiStore } from '@billfree/app-state';
 import { useTicketStore } from '@billfree/feature-tickets';
 
-type NavSection = {
-  label: string;
-  labelIcon: string;
-  items: { id: string; label: string; icon: string }[];
-};
+type NavItem = { id: string; label: string; Icon: LucideIcon };
+type NavSection = { label: string; items: NavItem[] };
 
 const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Main',
-    labelIcon: '🧭',
     items: [
-      { id: 'dashboard', label: 'Dashboard',        icon: '🏠' },
-      { id: 'team',      label: 'Team Performance', icon: '🏆' },
+      { id: 'dashboard', label: 'Dashboard',        Icon: LayoutDashboard },
+      { id: 'team',      label: 'Team Performance', Icon: Trophy },
     ],
   },
   {
     label: 'Data',
-    labelIcon: '💾',
     items: [
-      { id: 'analytics', label: 'Manager Analytics', icon: '📊' },
-      { id: 'master',    label: 'Master Database',   icon: '🗄️' },
+      { id: 'analytics', label: 'Manager Analytics', Icon: BarChart3 },
+      { id: 'master',    label: 'Master Database',   Icon: Database },
     ],
   },
   {
     label: 'Reports',
-    labelIcon: '📝',
     items: [
-      { id: 'history',       label: 'Update History',   icon: '📜' },
-      { id: 'monthlyreport', label: 'Monthly Reports',  icon: '📊' },
-      { id: 'calllog',       label: 'Call Log',         icon: '📞' },
+      { id: 'history',       label: 'Update History',  Icon: History },
+      { id: 'monthlyreport', label: 'Monthly Reports', Icon: FileBarChart2 },
+      { id: 'calllog',       label: 'Call Log',        Icon: Phone },
     ],
   },
   {
     label: 'System',
-    labelIcon: '⚙️',
     items: [
-      { id: 'settings', label: 'Settings', icon: '⚙️' },
+      { id: 'settings', label: 'Settings', Icon: Settings2 },
     ],
   },
 ];
 
 export default function Sidebar() {
-  const activeView    = useUiStore(s => s.activeView);
-  const setView       = useUiStore(s => s.setView);
-  const darkMode      = useUiStore(s => s.darkMode);
-  const toggleDark    = useUiStore(s => s.toggleDarkMode);
-  const isLoading     = useTicketStore(s => s.isLoading);
+  const activeView = useUiStore(s => s.activeView);
+  const setView    = useUiStore(s => s.setView);
+  const darkMode   = useUiStore(s => s.darkMode);
+  const toggleDark = useUiStore(s => s.toggleDarkMode);
+  const isLoading  = useTicketStore(s => s.isLoading);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <aside className="sidebar" aria-label="Main navigation">
-      {/* Premium Brand Header */}
+    <aside
+      className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}
+      aria-label="Main navigation"
+    >
+      {/* Brand + collapse control */}
       <div className="sidebar-header">
         <div className="brand">
-          <span className="brand-icon" aria-hidden="true">⚡</span>
-          BillFree TechSupport
+          <span className="brand-icon-wrap" aria-hidden="true">
+            <Zap size={17} strokeWidth={2.5} />
+          </span>
+          {!collapsed && (
+            <span className="brand-text">
+              <span className="brand-name">BillFree</span>
+              <span className="brand-sub">TechOps</span>
+            </span>
+          )}
         </div>
-        <div className="brand-subtitle">
-          <span className="status-dot" aria-hidden="true" />
-          Live • v10.0 PRO
-        </div>
+        <button
+          className="sidebar-collapse-btn"
+          onClick={() => setCollapsed(c => !c)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <ChevronLeft
+            size={16}
+            style={{
+              transform: collapsed ? 'rotate(180deg)' : 'none',
+              transition: 'transform 300ms var(--ease-premium)',
+            }}
+          />
+        </button>
       </div>
 
-      {/* Navigation Container */}
-      <div className="nav-container">
+      {/* Live status pill */}
+      {!collapsed && (
+        <div className="sidebar-status">
+          <span className="status-dot" aria-hidden="true" />
+          Live • v12.0 PRO
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="nav-container" role="navigation">
         {NAV_SECTIONS.map((section, si) => (
           <div className="nav-section" key={section.label}>
             <div className={`nav-label ${si === 0 ? 'nav-label-first' : ''}`}>
-              <span className="nav-label-icon" aria-hidden="true">{section.labelIcon}</span>
               {section.label}
             </div>
-            {section.items.map((item, ii) => (
-              <button
-                key={item.id}
-                className={`nav-item ${activeView === item.id ? 'active' : ''}`}
-                onClick={() => setView(item.id)}
-                aria-current={activeView === item.id ? 'page' : undefined}
-                style={{ animationDelay: `${(si * 2 + ii) * 0.05 + 0.05}s` } as React.CSSProperties}
-              >
-                <span className="nav-item-icon" aria-hidden="true">{item.icon}</span>
-                <span className="nav-item-text">{item.label}</span>
-                {isLoading && activeView === item.id && (
-                  <span className="nav-badge">…</span>
-                )}
-              </button>
-            ))}
+            {section.items.map((item, ii) => {
+              const isActive = activeView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`nav-item ${isActive ? 'active' : ''}`}
+                  onClick={() => setView(item.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  data-tip={item.label}
+                  style={{ animationDelay: `${(si * 2 + ii) * 0.05 + 0.05}s` } as React.CSSProperties}
+                >
+                  <span className="nav-item-icon" aria-hidden="true">
+                    <item.Icon size={18} strokeWidth={isActive ? 2.3 : 1.85} />
+                  </span>
+                  {!collapsed && <span className="nav-item-text">{item.label}</span>}
+                  {!collapsed && isLoading && isActive && (
+                    <span className="nav-loading-dot" aria-hidden="true" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         ))}
-      </div>
+      </nav>
 
-      {/* Sidebar Footer with Theme Toggle */}
+      {/* Footer — theme toggle */}
       <div className="sidebar-footer">
         <button
           className="theme-toggle"
@@ -101,12 +135,14 @@ export default function Sidebar() {
         >
           <div className="theme-toggle-track" aria-hidden="true">
             <div className="theme-toggle-thumb">
-              <span className={`theme-icon ${darkMode ? 'theme-icon-moon' : 'theme-icon-sun'}`}>
-                {darkMode ? '🌙' : '☀️'}
-              </span>
+              {darkMode
+                ? <Moon size={11} strokeWidth={2.5} />
+                : <Sun  size={11} strokeWidth={2.5} />}
             </div>
           </div>
-          <span className="theme-label">{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
+          {!collapsed && (
+            <span className="theme-label">{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
+          )}
         </button>
       </div>
     </aside>

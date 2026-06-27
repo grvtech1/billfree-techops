@@ -1,3 +1,4 @@
+import { Settings2, User, Palette, Info } from 'lucide-react';
 import { useAuthStore, useUiStore } from '@billfree/app-state';
 
 /**
@@ -12,11 +13,11 @@ export default function SettingsView() {
 
   return (
     <div className="settings-view" id="settings-view">
-      <h1 className="view-title">⚙️ Settings</h1>
+      <h1 className="view-title"><Settings2 size={22} strokeWidth={2.2} /> Settings</h1>
 
       {/* ── Profile Card ───────────────────────────────────────── */}
       <section className="card" aria-labelledby="section-profile">
-        <h2 id="section-profile" className="card-heading">👤 Profile</h2>
+        <h2 id="section-profile" className="card-heading"><User size={15} strokeWidth={2.2} /> Profile</h2>
         <div className="settings-grid">
           <div className="settings-row">
             <span className="settings-label">Name</span>
@@ -35,7 +36,7 @@ export default function SettingsView() {
 
       {/* ── Appearance ─────────────────────────────────────────── */}
       <section className="card" aria-labelledby="section-appearance">
-        <h2 id="section-appearance" className="card-heading">🎨 Appearance</h2>
+        <h2 id="section-appearance" className="card-heading"><Palette size={15} strokeWidth={2.2} /> Appearance</h2>
         <div className="settings-grid">
           <div className="settings-row">
             <span className="settings-label">Dark Mode</span>
@@ -54,7 +55,7 @@ export default function SettingsView() {
 
       {/* ── About ──────────────────────────────────────────────── */}
       <section className="card" aria-labelledby="section-about">
-        <h2 id="section-about" className="card-heading">ℹ️ About</h2>
+        <h2 id="section-about" className="card-heading"><Info size={15} strokeWidth={2.2} /> About</h2>
         <div className="settings-grid">
           <div className="settings-row">
             <span className="settings-label">Application</span>
