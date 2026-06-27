@@ -6,3 +6,9 @@
 *.jpg binary
 *.svg text eol=lf
 *.ico binary
+
+# GitHub Linguist overrides — exclude legacy GAS monolith and generated files
+# from language stats so TypeScript shows as the primary language.
+apps/gas/** linguist-vendored=true
+apps/web/dist/** linguist-vendored=true
+deploy/charts/**/*.yaml linguist-language=YAML
