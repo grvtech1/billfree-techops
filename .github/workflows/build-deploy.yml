@@ -100,9 +100,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: main
-          # Admin PAT so the tag-bump can push to protected main (see header).
-          # Falls back to GITHUB_TOKEN, which fails the push on a protected branch.
-          token: ${{ secrets.GITOPS_TOKEN || secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN with contents:write (declared in workflow permissions).
+          # PR-review branch protection was removed so direct pushes are allowed.
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pin deployed image tags to this commit
         run: |
