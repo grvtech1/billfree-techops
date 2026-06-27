@@ -34,7 +34,7 @@ export default function Skeleton({
         <div
           key={i}
           className={baseClass}
-          style={style}
+          style={{ ...style, animationDelay: `${i * 0.06}s` }}
           aria-hidden="true"
           role="presentation"
         />
@@ -46,28 +46,54 @@ export default function Skeleton({
 /**
  * Pre-composed skeleton patterns for common views.
  */
-export function SkeletonKpiGrid() {
+export function SkeletonKpiGrid({ count = 5 }: { count?: number }) {
   return (
-    <div className="kpi-grid" aria-busy="true" aria-label="Loading KPIs">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="skeleton skeleton-card" style={{ height: '110px' }} />
+    <div className="kpi-grid" aria-busy="true" aria-label="Loading KPIs" role="status">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="skeleton skeleton-card"
+          style={{ height: '118px', animationDelay: `${i * 0.07}s` }}
+        />
       ))}
     </div>
   );
 }
 
 export function SkeletonTable({ rows = 5 }: { rows?: number }) {
+  // Varying widths read as real text columns rather than uniform bars.
+  const colWidths = ['45%', '90%', '70%', '80%', '60%'];
   return (
-    <div className="ticket-table-wrapper" aria-busy="true" aria-label="Loading tickets">
-      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {Array.from({ length: rows }).map((_, i) => (
-          <div
-            key={i}
-            className="skeleton"
-            style={{ height: '36px', borderRadius: '6px' }}
-          />
+    <div className="ticket-table-wrapper" aria-busy="true" aria-label="Loading tickets" role="status">
+      {/* Faux header */}
+      <div style={{ display: 'flex', gap: 10, padding: '12px 16px', borderBottom: '2px solid var(--border)' }}>
+        {[60, 92, 120, 80, 100, 70].map((w, i) => (
+          <div key={i} className="skeleton" style={{ width: w, height: 10, borderRadius: 4, flexShrink: 0 }} />
         ))}
       </div>
+      {/* Faux rows */}
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '12px 16px',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <div className="skeleton" style={{ width: 64, height: 22, borderRadius: 4, flexShrink: 0, animationDelay: `${i * 0.05}s` }} />
+          {colWidths.map((w, j) => (
+            <div
+              key={j}
+              className="skeleton skeleton-text"
+              style={{ width: w, marginBottom: 0, animationDelay: `${(i + j) * 0.04}s` }}
+            />
+          ))}
+          <div className="skeleton" style={{ width: 80, height: 22, borderRadius: 999, marginLeft: 'auto', flexShrink: 0, animationDelay: `${i * 0.05}s` }} />
+        </div>
+      ))}
     </div>
   );
 }

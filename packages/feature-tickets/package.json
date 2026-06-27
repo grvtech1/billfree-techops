@@ -15,7 +15,8 @@
     "@billfree/web-core": "*",
     "@billfree/api": "*",
     "@billfree/ui": "*",
-    "@billfree/app-state": "*"
+    "@billfree/app-state": "*",
+    "lucide-react": "^0.460.0"
   },
   "peerDependencies": {
     "react": "^18.0.0",

@@ -1,3 +1,4 @@
+import { Plus, RefreshCw, LogOut } from 'lucide-react';
 import { useUiStore, useAuthStore } from '@billfree/app-state';
 import { useTicketStore, useTickets } from '@billfree/feature-tickets';
 import { BACKEND } from '@billfree/api';
@@ -31,7 +32,8 @@ export default function TopBar() {
           className="btn btn-create"
           onClick={() => openModal('createTicket')}
         >
-          ➕ Create Ticket
+          <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
+          Create Ticket
         </button>
         <button
           id="header-refresh-btn"
@@ -40,8 +42,10 @@ export default function TopBar() {
           disabled={isLoading}
           title="Refresh ticket data"
         >
-          <span className={isLoading ? 'spinning' : ''} aria-hidden="true">🔄</span>
-          {' '}Refresh
+          <span className={isLoading ? 'spinning' : ''} aria-hidden="true">
+            <RefreshCw size={15} strokeWidth={2.4} />
+          </span>
+          Refresh
         </button>
         {/* Gateway (JWT) mode shows the signed-in identity + a sign-out control. */}
         {BACKEND === 'gateway' && user && (
@@ -50,7 +54,8 @@ export default function TopBar() {
             onClick={() => logout()}
             title={`Signed in as ${user.email} (${user.role})`}
           >
-            🚪 Sign out · {user.name}
+            <LogOut size={15} strokeWidth={2.2} aria-hidden="true" />
+            Sign out · {user.name}
           </button>
         )}
       </div>

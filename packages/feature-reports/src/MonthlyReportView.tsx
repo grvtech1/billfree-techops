@@ -4,9 +4,12 @@ import { downloadCSV } from '@billfree/web-core';
 import { api } from '@billfree/api';
 import { useAuthStore, useUiStore } from '@billfree/app-state';
 import {
-  BarChart, Bar, LineChart, Line,
+  BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
 } from 'recharts';
+import {
+  GRADIENT_DEFS, CHART_GRID, AXIS, PremiumTooltip, ActiveDot, CHART_PALETTE,
+} from '@billfree/ui';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -245,15 +248,16 @@ export default function MonthlyReportView() {
               <h3 className="chart-title">📈 Daily Trend — Created vs Completed</h3>
               {dailyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={dailyTrend} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
-                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="created"   name="Created"   stroke="#667eea" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="completed" name="Completed" stroke="#10B981" strokeWidth={2} dot={false} />
-                  </LineChart>
+                  <AreaChart data={dailyTrend} margin={{ top: 8, right: 16, bottom: 5, left: -8 }}>
+                    {GRADIENT_DEFS}
+                    <CartesianGrid {...CHART_GRID} vertical={false} />
+                    <XAxis dataKey="day" {...AXIS} />
+                    <YAxis {...AXIS} allowDecimals={false} />
+                    <Tooltip content={<PremiumTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                    <Area type="monotone" dataKey="created"   name="Created"   stroke={CHART_PALETTE.primary} strokeWidth={2.5} fill="url(#grad-primary)" activeDot={<ActiveDot />} />
+                    <Area type="monotone" dataKey="completed" name="Completed" stroke={CHART_PALETTE.emerald} strokeWidth={2.5} fill="url(#grad-emerald)" activeDot={<ActiveDot />} />
+                  </AreaChart>
                 </ResponsiveContainer>
               ) : <div className="chart-empty">No daily data</div>}
             </div>
@@ -262,11 +266,13 @@ export default function MonthlyReportView() {
               <h3 className="chart-title">⏰ Hourly Distribution (peak: {report.peakHour})</h3>
               {hourlyDistribution.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={hourlyDistribution} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={2} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                  <BarChart data={hourlyDistribution} margin={{ top: 8, right: 10, bottom: 5, left: -8 }}>
+                    {GRADIENT_DEFS}
+                    <CartesianGrid {...CHART_GRID} vertical={false} />
+                    <XAxis dataKey="label" {...AXIS} interval={2} />
+                    <YAxis {...AXIS} allowDecimals={false} />
+                    <Tooltip content={<PremiumTooltip unit=" tickets" />} cursor={{ fill: 'hsl(var(--primary-hsl) / .06)' }} />
+                    <Bar dataKey="count" name="Tickets" fill="url(#grad-violet)" radius={[4, 4, 0, 0]} maxBarSize={22} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : <div className="chart-empty">No hourly data</div>}
