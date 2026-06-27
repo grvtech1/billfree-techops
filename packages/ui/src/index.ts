@@ -9,6 +9,11 @@ export { default as AgentCard } from './AgentCard';
 export { default as ChannelBadge } from './ChannelBadge';
 export { default as EmptyState } from './EmptyState';
 export { default as KpiCard } from './KpiCard';
+export type { KpiTrend } from './KpiCard';
+export {
+  CHART_PALETTE, GRADIENT_DEFS, CHART_GRID, AXIS,
+  PremiumTooltip, ActiveDot,
+} from './ChartConfig';
 export { default as Modal } from './Modal';
 export { default as Pagination } from './Pagination';
 export { default as StatusBadge } from './StatusBadge';

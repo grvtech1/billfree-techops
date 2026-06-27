@@ -14,7 +14,8 @@
   "dependencies": {
     "@billfree/web-core": "*",
     "@billfree/api": "*",
-    "@billfree/app-state": "*"
+    "@billfree/app-state": "*",
+    "@billfree/ui": "*"
   },
   "peerDependencies": {
     "react": "^18.0.0",

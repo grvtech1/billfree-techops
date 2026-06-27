@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { Ticket as TicketIcon, CheckCircle2, Clock, Archive, XCircle } from 'lucide-react';
 import type { Ticket } from '@billfree/web-core';
 import { KpiCard, AgentCard } from '@billfree/ui';
 import { useTicketStore, selectKpi, selectAgentStats } from '../ticketStore';
@@ -84,13 +85,13 @@ export default function DashboardView() {
 
 
 
-  // Match legacy 5 KPI cards exactly
+  // Match legacy 5 KPI cards exactly (icons now from Lucide for crisp rendering)
   const kpiCards = [
-    { label: 'Total Tickets', count: kpi.total,       color: 'var(--primary)',  icon: '🎫', variant: 'total',  status: 'Total' },
-    { label: 'Completed',     count: kpi.completed,    color: 'var(--success)',  icon: '✅', variant: 'comp',   status: 'Completed' },
-    { label: 'Pending',       count: kpi.pending + kpi.notCompleted + kpi.inProgress, color: 'var(--warning)', icon: '⏳', variant: 'pend', status: 'Not Completed' },
-    { label: 'Closed',        count: kpi.closed,       color: 'var(--gray)',     icon: '📦', variant: 'closed', status: 'Closed' },
-    { label: "Can't Do",      count: kpi.cantDo,       color: 'var(--danger)',   icon: '🚫', variant: 'cant',   status: "Can't Do" },
+    { label: 'Total Tickets', count: kpi.total,       icon: <TicketIcon size={18} />,  variant: 'total',  status: 'Total' },
+    { label: 'Completed',     count: kpi.completed,    icon: <CheckCircle2 size={18} />, variant: 'comp',   status: 'Completed' },
+    { label: 'Pending',       count: kpi.pending + kpi.notCompleted + kpi.inProgress, icon: <Clock size={18} />, variant: 'pend', status: 'Not Completed' },
+    { label: 'Closed',        count: kpi.closed,       icon: <Archive size={18} />,      variant: 'closed', status: 'Closed' },
+    { label: "Can't Do",      count: kpi.cantDo,       icon: <XCircle size={18} />,      variant: 'cant',   status: "Can't Do" },
   ];
 
   // Compute team average for peer comparison bars
@@ -112,7 +113,6 @@ export default function DashboardView() {
             key={card.variant}
             label={card.label}
             count={card.count}
-            color={card.color}
             icon={card.icon}
             variant={card.variant}
             isActive={filter.status === card.status}
