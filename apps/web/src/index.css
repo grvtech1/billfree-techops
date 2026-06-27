@@ -124,9 +124,9 @@
   --border-subtle:    hsl(var(--primary-hsl) / 0.08);
   --border-focus:     var(--primary);
 
-  /* Sidebar — matches legacy light gradient */
-  --sidebar-width:    272px;
-  --sidebar-width-collapsed: 72px;
+  /* Sidebar */
+  --sidebar-width:    240px;
+  --sidebar-width-collapsed: 64px;
   --topbar-height:    60px;
   --gray:             hsl(215 16% 47%);
 
@@ -263,8 +263,8 @@ a { color: var(--primary); text-decoration: none; }
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 24px;
-  scroll-padding-top: 24px;
+  padding: 20px 24px 28px;
+  scroll-padding-top: 20px;
 }
 
 /* View visibility — CSS toggled to preserve state */
@@ -2453,6 +2453,9 @@ a { color: var(--primary); text-decoration: none; }
 .header {
   background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  /* Align horizontal padding with main-content (24px) so title + content grid up */
+  padding: 0 24px;
+  height: var(--topbar-height);
 }
 .page-title h1 {
   letter-spacing: -.02em;
@@ -2477,7 +2480,11 @@ a { color: var(--primary); text-decoration: none; }
 [data-theme="dark"] .chart-card,
 [data-theme="dark"] .agent-card { border-color: rgba(255,255,255,.06); }
 [data-theme="dark"] .main-content { background-image: none; }
-[data-theme="dark"] .header { background: linear-gradient(180deg, rgba(10,17,32,.96), rgba(10,17,32,.9)); }
+[data-theme="dark"] .header {
+  background: linear-gradient(180deg, rgba(10,17,32,.96), rgba(10,17,32,.9));
+  padding: 0 24px;
+  height: var(--topbar-height);
+}
 [data-theme="dark"] .page-title h1 {
   background: linear-gradient(120deg,#E2E8F0 30%,#818CF8);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
@@ -2502,8 +2509,10 @@ a { color: var(--primary); text-decoration: none; }
   background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-body) 100%);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  transition: width .3s var(--ease-premium),
-              min-width .3s var(--ease-premium);
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width .32s var(--ease-premium),
+              min-width .32s var(--ease-premium);
 }
 [data-theme="dark"] .sidebar {
   background: linear-gradient(180deg, hsl(222 44% 11%) 0%, hsl(222 47% 7%) 100%);
@@ -2520,11 +2529,18 @@ a { color: var(--primary); text-decoration: none; }
 .sidebar-header {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px;
-  padding: 20px 16px;
+  padding: 16px 14px;
   background: none;
   border-bottom: 1px solid var(--border);
 }
-.sidebar-collapsed .sidebar-header { padding: 20px 0; justify-content: center; }
+/* Collapsed: stack brand-icon above expand button so both are visible */
+.sidebar-collapsed .sidebar-header {
+  flex-direction: column;
+  padding: 14px 0 10px;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
 
 .brand {
   display: flex; align-items: center; gap: 11px;
@@ -2549,12 +2565,20 @@ a { color: var(--primary); text-decoration: none; }
   width: 28px; height: 28px; flex-shrink: 0;
   border: 1px solid var(--border); border-radius: var(--radius-xs);
   background: var(--bg-surface-2); color: var(--text-secondary);
-  cursor: pointer; opacity: 0;
-  transition: opacity .15s, background .15s, color .15s;
+  cursor: pointer; opacity: 0.3;
+  transition: opacity .2s, background .15s, color .15s;
 }
 .sidebar:hover .sidebar-collapse-btn { opacity: 1; }
 .sidebar-collapse-btn:hover { background: var(--bg-surface); color: var(--text-primary); }
-.sidebar-collapsed .sidebar-collapse-btn { display: none; }
+/* ↓ Critical: keep button visible in collapsed state — it's the only way to expand back */
+.sidebar-collapsed .sidebar-collapse-btn {
+  display: flex; opacity: 1;
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  border-color: hsl(var(--primary-hsl) / .18);
+  color: var(--primary);
+}
 
 /* Live status pill */
 .sidebar-status {
@@ -2568,7 +2592,7 @@ a { color: var(--primary); text-decoration: none; }
 
 /* Nav labels hidden when collapsed */
 .sidebar-collapsed .nav-label { display: none; }
-.sidebar-collapsed .nav-container { padding: 12px 10px; }
+.sidebar-collapsed .nav-container { padding: 10px 8px; }
 
 /* Active-item left bar (recolored from legacy white) */
 .nav-item.active::before {
@@ -2616,7 +2640,9 @@ a { color: var(--primary); text-decoration: none; }
 /* Theme toggle thumb hosts an SVG icon */
 .theme-toggle-thumb { color: hsl(var(--primary-hsl)); }
 .sidebar-collapsed .theme-label { display: none; }
-.sidebar-collapsed .theme-toggle { justify-content: center; gap: 0; }
+/* Collapsed footer: reduce h-padding so the 44px track fits in the 64px rail */
+.sidebar-collapsed .sidebar-footer { padding: 10px 4px; }
+.sidebar-collapsed .theme-toggle { justify-content: center; gap: 0; padding: 8px 6px; }
 
 /* ════════ KPI CARD v12 ═══════════════════════════════════════════ */
 .kpi-card {
