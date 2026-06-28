@@ -21,5 +21,5 @@ if (saved === 'true' || (saved === null && prefersDark)) {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>
+  </React.StrictMode>,
 );

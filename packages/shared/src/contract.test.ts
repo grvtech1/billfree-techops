@@ -33,9 +33,7 @@ describe('helpers', () => {
 describe('contract parity with GAS backend (apps/gas/src/Code.gs)', () => {
   it('STATUSES match STATUS_ENUM values', () => {
     const block = CODE_GS.match(/const STATUS_ENUM = Object\.freeze\(\{([\s\S]*?)\}\)/)?.[1] ?? '';
-    const gasValues = [...block.matchAll(/:\s*("[^"]*"|'[^']*')/g)].map((m) =>
-      m[1].slice(1, -1)
-    );
+    const gasValues = [...block.matchAll(/:\s*("[^"]*"|'[^']*')/g)].map((m) => m[1].slice(1, -1));
     expect(gasValues.sort()).toEqual([...STATUSES].sort());
   });
 
@@ -48,7 +46,7 @@ describe('contract parity with GAS backend (apps/gas/src/Code.gs)', () => {
   it('every POST_ACTION (except portal/external/cdr) is routed in doPost', () => {
     // These actions are dispatched by the SPA; confirm the backend handles them.
     const spaActions = POST_ACTIONS.filter(
-      (a) => !['createticket', 'portal_create', 'portal_lookup', 'provider_cdr'].includes(a)
+      (a) => !['createticket', 'portal_create', 'portal_lookup', 'provider_cdr'].includes(a),
     );
     for (const action of spaActions) {
       expect(CODE_GS.includes(`action === '${action}'`)).toBe(true);

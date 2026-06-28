@@ -13,12 +13,15 @@ export default function App() {
   const { status, bootstrapFromCloudflare } = useAuthStore();
   const { fetchData, version } = useTickets();
   const { broadcast } = useBroadcastSync(version, fetchData);
-  const applyDarkMode = useUiStore(s => s.applyDarkMode);
+  const applyDarkMode = useUiStore((s) => s.applyDarkMode);
 
   // ── 1. Dark mode (restores from localStorage) ────────────
   useEffect(() => {
     const saved = localStorage.getItem('billfree_darkMode');
-    const dark  = saved !== null ? saved === 'true' : window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    const dark =
+      saved !== null
+        ? saved === 'true'
+        : window.matchMedia?.('(prefers-color-scheme: dark)').matches;
     applyDarkMode(dark);
   }, [applyDarkMode]);
 
@@ -30,11 +33,9 @@ export default function App() {
       useAuthStore.getState().restoreSession();
       return;
     }
-    const cleanup = initCloudflareAuthBridge(
-      (idToken: string, userInfo: Partial<AppUser>) => {
-        bootstrapFromCloudflare(idToken, userInfo);
-      }
-    );
+    const cleanup = initCloudflareAuthBridge((idToken: string, userInfo: Partial<AppUser>) => {
+      bootstrapFromCloudflare(idToken, userInfo);
+    });
     return cleanup;
   }, [bootstrapFromCloudflare]);
 
@@ -79,10 +80,7 @@ function AuthErrorScreen() {
       <div className="error-icon">🔒</div>
       <h1>Access Denied</h1>
       <p>Please sign in with your BillFree Google account to continue.</p>
-      <button
-        className="btn btn-primary"
-        onClick={() => window.location.reload()}
-      >
+      <button className="btn btn-primary" onClick={() => window.location.reload()}>
         Retry
       </button>
     </div>

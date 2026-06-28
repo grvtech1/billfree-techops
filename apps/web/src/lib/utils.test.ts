@@ -90,8 +90,18 @@ describe('computeKPIs', () => {
 describe('computeAgentStats — scoring algorithm (drives performance review)', () => {
   it('merges identities and applies the canonical score/rate formula', () => {
     const tickets = [
-      ticket({ agent: 'Suraj', status: 'Completed', ageDays: 2, reason: 'resolved with a detailed note' }),
-      ticket({ agent: 'suraj.billfree2@gmail.com', status: 'Completed', ageDays: 1, reason: 'fixed and verified properly' }),
+      ticket({
+        agent: 'Suraj',
+        status: 'Completed',
+        ageDays: 2,
+        reason: 'resolved with a detailed note',
+      }),
+      ticket({
+        agent: 'suraj.billfree2@gmail.com',
+        status: 'Completed',
+        ageDays: 1,
+        reason: 'fixed and verified properly',
+      }),
       ticket({ agent: 'Suraj', status: "Can't Do", ageDays: 3, reason: 'cannot be done' }),
       ticket({ agent: 'Suraj', status: 'Closed', ageDays: 5, reason: 'x' }), // invalidClosed (reason < 10)
     ];

@@ -3,7 +3,7 @@ import { useEffect, useCallback } from 'react';
 const CHANNEL_NAME = 'billfree_sync_v2';
 
 interface Message {
-  type:    'VERSION_UPDATE';
+  type: 'VERSION_UPDATE';
   version: number;
 }
 
@@ -15,7 +15,7 @@ interface Message {
  */
 export function useBroadcastSync(
   currentVersion: number,
-  onNewVersion:   () => void
+  onNewVersion: () => void,
 ): { broadcast: (version: number) => void } {
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return;

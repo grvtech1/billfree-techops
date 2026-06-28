@@ -59,7 +59,12 @@ describe('gatewayApi', () => {
 
   it('updateStatus issues a PATCH with Bearer auth + status body', async () => {
     const f = mockFetch({ success: true, data: gwTicket });
-    await gatewayApi.updateStatus({ ticketId: 'BF-1', newStatus: 'Completed', csrfToken: '', token: 'jwt' });
+    await gatewayApi.updateStatus({
+      ticketId: 'BF-1',
+      newStatus: 'Completed',
+      csrfToken: '',
+      token: 'jwt',
+    });
     const [url, opts] = f.mock.calls[0] as [string, RequestInit];
     expect(String(url)).toContain('/api/tickets/BF-1');
     expect(opts.method).toBe('PATCH');
@@ -70,7 +75,9 @@ describe('gatewayApi', () => {
   it('updatePOS sends the pos field', async () => {
     const f = mockFetch({ success: true, data: gwTicket });
     await gatewayApi.updatePOS({ ticketId: 'BF-1', pos: 'GoFrugal', csrfToken: '', token: 'jwt' });
-    expect(JSON.parse((f.mock.calls[0][1] as RequestInit).body as string)).toEqual({ pos: 'GoFrugal' });
+    expect(JSON.parse((f.mock.calls[0][1] as RequestInit).body as string)).toEqual({
+      pos: 'GoFrugal',
+    });
   });
 
   it('parses the [E0NN] code into an ApiError on failure', async () => {
@@ -125,15 +132,21 @@ describe('gatewayApi call log', () => {
     expect(String(url)).toContain('/api/calls?');
     expect(String(url)).not.toContain('outcome=all'); // 'all' is dropped
     expect(res.success).toBe(true);
-    expect((res.data as unknown[])).toHaveLength(1);
+    expect(res.data as unknown[]).toHaveLength(1);
     expect((res.pagination as { totalRows: number }).totalRows).toBe(1);
   });
 
   it('logCallEvent POSTs the payload and returns the new eventId', async () => {
     const f = mockFetch({ success: true, data: gwCall });
     const res = await gatewayApi.logCallEvent(
-      { eventType: 'CALL_COMPLETED', outcome: 'CONNECTED', durationSec: '142', agentEmail: 'agent1@billfree.in' },
-      '', 'jwt',
+      {
+        eventType: 'CALL_COMPLETED',
+        outcome: 'CONNECTED',
+        durationSec: '142',
+        agentEmail: 'agent1@billfree.in',
+      },
+      '',
+      'jwt',
     );
     const [url, opts] = f.mock.calls[0] as [string, RequestInit];
     expect(String(url)).toContain('/api/calls');
@@ -154,11 +167,30 @@ describe('gatewayApi updateHistory', () => {
   it('fetches /api/tickets/:id/history and passes the audit response through', async () => {
     const f = mockFetch({
       success: true,
-      data: [{ rowNum: 1, action: 'TICKET_UPDATED', previousStatus: 'Not Completed', newStatus: 'Completed' }],
+      data: [
+        {
+          rowNum: 1,
+          action: 'TICKET_UPDATED',
+          previousStatus: 'Not Completed',
+          newStatus: 'Completed',
+        },
+      ],
       pagination: { page: 1, pageSize: 20, totalRows: 1, totalPages: 1 },
-      durationStats: { totalWithDuration: 1, avgHours: 1, fastCount: 1, normalCount: 0, slowCount: 0, criticalCount: 0 },
+      durationStats: {
+        totalWithDuration: 1,
+        avgHours: 1,
+        fastCount: 1,
+        normalCount: 0,
+        slowCount: 0,
+        criticalCount: 0,
+      },
     });
-    const res = await gatewayApi.updateHistory({ ticketId: 'BF-1', page: 1, pageSize: 20, token: 'jwt' });
+    const res = await gatewayApi.updateHistory({
+      ticketId: 'BF-1',
+      page: 1,
+      pageSize: 20,
+      token: 'jwt',
+    });
     const [url] = f.mock.calls[0] as [string];
     expect(String(url)).toContain('/api/tickets/BF-1/history');
     expect(res.data).toHaveLength(1);
@@ -180,7 +212,9 @@ describe('gatewayApi monthlyReport', () => {
 
   it('surfaces an [E0NN] error as an ApiError', async () => {
     mockFetch({ success: false, error: '[E004] bad month' }, false, 400);
-    await expect(gatewayApi.monthlyReport({ month: 13, year: 2026, token: 'jwt' })).rejects.toMatchObject({ code: 'E004' });
+    await expect(
+      gatewayApi.monthlyReport({ month: 13, year: 2026, token: 'jwt' }),
+    ).rejects.toMatchObject({ code: 'E004' });
   });
 });
 
@@ -188,7 +222,10 @@ describe('gatewayLogin', () => {
   it('exchanges an email for a token + user', async () => {
     mockFetch({
       success: true,
-      data: { token: 'jwt-123', user: { sub: 'agent1@billfree.in', name: 'Agent One', role: 'agent' } },
+      data: {
+        token: 'jwt-123',
+        user: { sub: 'agent1@billfree.in', name: 'Agent One', role: 'agent' },
+      },
     });
     const { token, user } = await gatewayLogin('agent1@billfree.in');
     expect(token).toBe('jwt-123');

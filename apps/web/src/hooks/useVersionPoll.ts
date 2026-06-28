@@ -4,7 +4,7 @@ import { VERSION_POLL_MIN_MS, VERSION_POLL_MAX_MS } from '@billfree/web-core';
 
 interface Options {
   currentVersion: number;
-  onNewVersion:   () => void;
+  onNewVersion: () => void;
 }
 
 /**
@@ -14,14 +14,18 @@ interface Options {
  * - Resets backoff on tab re-focus or user click/keydown.
  */
 export function useVersionPoll({ currentVersion, onNewVersion }: Options) {
-  const timerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const backoffRef  = useRef(VERSION_POLL_MIN_MS);
-  const versionRef  = useRef(currentVersion);
-  const cbRef       = useRef(onNewVersion);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const backoffRef = useRef(VERSION_POLL_MIN_MS);
+  const versionRef = useRef(currentVersion);
+  const cbRef = useRef(onNewVersion);
 
   // Keep refs up to date without re-running the effect
-  useEffect(() => { versionRef.current = currentVersion; }, [currentVersion]);
-  useEffect(() => { cbRef.current      = onNewVersion; },   [onNewVersion]);
+  useEffect(() => {
+    versionRef.current = currentVersion;
+  }, [currentVersion]);
+  useEffect(() => {
+    cbRef.current = onNewVersion;
+  }, [onNewVersion]);
 
   useEffect(() => {
     const schedule = () => {
@@ -36,10 +40,7 @@ export function useVersionPoll({ currentVersion, onNewVersion }: Options) {
           if (v > versionRef.current) cbRef.current();
           backoffRef.current = VERSION_POLL_MIN_MS;
         } catch {
-          backoffRef.current = Math.min(
-            backoffRef.current * 1.5,
-            VERSION_POLL_MAX_MS
-          );
+          backoffRef.current = Math.min(backoffRef.current * 1.5, VERSION_POLL_MAX_MS);
         }
         schedule();
       }, backoffRef.current);
@@ -54,13 +55,13 @@ export function useVersionPoll({ currentVersion, onNewVersion }: Options) {
     };
 
     document.addEventListener('visibilitychange', resetBackoff);
-    document.addEventListener('click',   resetBackoff, { passive: true });
+    document.addEventListener('click', resetBackoff, { passive: true });
     document.addEventListener('keydown', resetBackoff, { passive: true });
 
     return () => {
       clearTimeout(timerRef.current);
       document.removeEventListener('visibilitychange', resetBackoff);
-      document.removeEventListener('click',   resetBackoff);
+      document.removeEventListener('click', resetBackoff);
       document.removeEventListener('keydown', resetBackoff);
     };
   }, []);

@@ -4,13 +4,13 @@ import { useTicketStore, useTickets } from '@billfree/feature-tickets';
 import { BACKEND } from '@billfree/api';
 
 export default function TopBar() {
-  const openModal     = useUiStore(s => s.openModal);
-  const isLoading     = useTicketStore(s => s.isLoading);
-  const version       = useTicketStore(s => s.version);
-  const totalTickets  = useTicketStore(s => s.rawData.length);
+  const openModal = useUiStore((s) => s.openModal);
+  const isLoading = useTicketStore((s) => s.isLoading);
+  const version = useTicketStore((s) => s.version);
+  const totalTickets = useTicketStore((s) => s.rawData.length);
   const { fetchData } = useTickets();
-  const user          = useAuthStore(s => s.user);
-  const logout        = useAuthStore(s => s.logout);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <header className="header" role="banner">
@@ -20,8 +20,10 @@ export default function TopBar() {
           {/* [UX] Replaces marketing copy with live data signal — version
               monotonically bumps on every backend write so users see the
               dashboard is fresh. */}
-          <span className="live-dot" aria-hidden="true">●</span>
-          {' '}Live · {totalTickets.toLocaleString()} tickets · v{version}
+          <span className="live-dot" aria-hidden="true">
+            ●
+          </span>{' '}
+          Live · {totalTickets.toLocaleString()} tickets · v{version}
         </p>
       </div>
       <div className="header-actions">

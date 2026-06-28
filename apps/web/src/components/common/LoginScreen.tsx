@@ -36,8 +36,11 @@ export default function LoginScreen() {
       <div
         className="login-card"
         style={{
-          width: 'min(420px, 100%)', padding: 32, borderRadius: 16,
-          background: 'var(--surface, #fff)', boxShadow: '0 10px 40px rgba(0,0,0,.12)',
+          width: 'min(420px, 100%)',
+          padding: 32,
+          borderRadius: 16,
+          background: 'var(--surface, #fff)',
+          boxShadow: '0 10px 40px rgba(0,0,0,.12)',
           textAlign: 'center',
         }}
       >
@@ -64,10 +67,24 @@ export default function LoginScreen() {
           </button>
         </form>
 
-        <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+        <div
+          style={{
+            marginTop: 20,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
           <span style={{ opacity: 0.6, fontSize: 13 }}>Demo users:</span>
           {DEMO_USERS.map((u) => (
-            <button key={u.email} className="btn btn-ghost" disabled={busy} onClick={() => void login(u.email)}>
+            <button
+              key={u.email}
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => void login(u.email)}
+            >
               {u.label}
             </button>
           ))}

@@ -77,8 +77,11 @@ jobs:
         with:
           image-ref: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.name }}:${{ env.IMAGE_TAG }}
           severity: CRITICAL,HIGH
+          # Only fixable CVEs block the build (ignore-unfixed), so the scan is
+          # actionable rather than cosmetic. To accept a specific CVE, add it to
+          # a .trivyignore file instead of disabling the gate.
           ignore-unfixed: true
-          exit-code: "0"
+          exit-code: "1"
 
       - name: Push image
         uses: docker/build-push-action@v7
