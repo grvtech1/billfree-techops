@@ -143,12 +143,14 @@
   --radius-lg: 20px;
   --radius-xl: 28px;
 
-  /* Shadow — ambient + key light, no pure black */
-  --shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.05), 0 1px 3px hsl(222 47% 11% / 0.04);
-  --shadow: 0 2px 4px hsl(222 47% 11% / 0.04), 0 8px 18px -6px hsl(222 47% 11% / 0.1);
+  /* Shadow — ambient + key light, no pure black. (Consolidated: sm/base/lg/xl
+     carry the v11 rgba values that previously won via a second :root block;
+     --shadow-md keeps its original value. Computed result is unchanged.) */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 8px 18px -6px rgba(15, 23, 42, 0.12);
   --shadow-md: 0 4px 8px hsl(222 47% 11% / 0.05), 0 14px 28px -8px hsl(222 47% 11% / 0.14);
-  --shadow-lg: 0 6px 12px hsl(222 47% 11% / 0.04), 0 20px 40px -10px hsl(222 47% 11% / 0.18);
-  --shadow-xl: 0 10px 20px hsl(222 47% 11% / 0.04), 0 32px 64px -12px hsl(222 47% 11% / 0.22);
+  --shadow-lg: 0 4px 8px rgba(15, 23, 42, 0.04), 0 18px 36px -10px rgba(15, 23, 42, 0.18);
+  --shadow-xl: 0 10px 20px rgba(15, 23, 42, 0.05), 0 30px 60px -14px rgba(15, 23, 42, 0.24);
 
   /* Transitions */
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -3414,18 +3416,9 @@ a {
 /* ════════════════════════════════════════════════════════════════
    PREMIUM POLISH v11 — depth, gradient accents, motion
    Layered on top of the v10 system (later source order wins).
+   (The duplicate :root token block that used to live here was merged into
+   the canonical :root above — its values are preserved there verbatim.)
    ════════════════════════════════════════════════════════════════ */
-:root {
-  --radius: 14px;
-  --radius-sm: 10px;
-  --radius-lg: 20px;
-  /* Softer, layered shadows (ambient + key light) */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05);
-  --shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 8px 18px -6px rgba(15, 23, 42, 0.12);
-  --shadow-lg: 0 4px 8px rgba(15, 23, 42, 0.04), 0 18px 36px -10px rgba(15, 23, 42, 0.18);
-  --shadow-xl: 0 10px 20px rgba(15, 23, 42, 0.05), 0 30px 60px -14px rgba(15, 23, 42, 0.24);
-  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
-}
 
 /* App canvas: faint tinted gradient instead of flat grey.
    Rendered on a fixed pseudo-element rather than via
