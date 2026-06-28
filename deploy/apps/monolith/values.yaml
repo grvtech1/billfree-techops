@@ -11,7 +11,7 @@
 nameOverride: monolith
 image:
   repository: ghcr.io/grvtech1/billfree-techops/monolith
-  tag: latest
+  tag: "54c82e4d80bb87bd49ff6e073847fd8c41988130"
 replicaCount: 2
 containerPort: 8080
 service:
