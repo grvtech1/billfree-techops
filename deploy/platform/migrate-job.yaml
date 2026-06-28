@@ -27,7 +27,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: migrate
-          image: ghcr.io/grvtech1/billfree-techops/db-migrate:b3d808c41289cd231871853e9eb682815d0c007c
+          image: ghcr.io/grvtech1/billfree-techops/db-migrate:be011a773a58630b9e6e0daf0750522b6f34335a
           env:
             - name: DATABASE_URL
               valueFrom:

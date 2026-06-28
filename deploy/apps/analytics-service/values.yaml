@@ -1,7 +1,7 @@
 nameOverride: analytics-service
 image:
   repository: ghcr.io/grvtech1/billfree-techops/analytics-service
-  tag: "b3d808c41289cd231871853e9eb682815d0c007c"
+  tag: "be011a773a58630b9e6e0daf0750522b6f34335a"
 replicaCount: 2
 containerPort: 8080
 env:
