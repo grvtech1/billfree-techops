@@ -61,15 +61,25 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 kubectl -n argocd rollout status deploy/argocd-server
 ```
 
-## 4. Create the bootstrap secret (out-of-band)
+## 4. Create the bootstrap secrets (out-of-band)
+
+The simplest path is `scripts/bootstrap-cluster.sh`, which generates a matching
+`postgres-secret`, `billfree-app-secrets`, and `grafana-admin` with random
+passwords. To do it manually, generate the DB password once and reuse it:
 
 ```bash
 kubectl create namespace billfree
+DB_PASSWORD="$(openssl rand -hex 24)"
+kubectl -n billfree create secret generic postgres-secret \
+  --from-literal=POSTGRES_USER="billfree" \
+  --from-literal=POSTGRES_PASSWORD="$DB_PASSWORD" \
+  --from-literal=POSTGRES_DB="billfree"
 kubectl -n billfree create secret generic billfree-app-secrets \
   --from-literal=JWT_SECRET="$(openssl rand -hex 24)" \
   --from-literal=JWT_ISSUER="billfree-techops" \
-  --from-literal=DATABASE_URL="postgres://billfree:REDACTED-DEV-PLACEHOLDER@postgres:5432/billfree" \
-  --from-literal=INTAKE_API_KEY="$(openssl rand -hex 24)"
+  --from-literal=DATABASE_URL="postgres://billfree:${DB_PASSWORD}@postgres:5432/billfree" \
+  --from-literal=INTAKE_API_KEY="$(openssl rand -hex 24)" \
+  --from-literal=GOOGLE_CLIENT_IDS="<your-google-oauth-client-ids>"
 ```
 
 > `INTAKE_API_KEY` enables the WhatsApp chatbot intake routes (ticket-service +
@@ -105,7 +115,8 @@ echo "<NODE_PUBLIC_IP> billfree.example api.billfree.example" | sudo tee -a /etc
 
 # Grafana (port-forward):
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
-# user admin / pass REDACTED-DEV-PLACEHOLDER  → dashboards include the services' RED metrics
+# Login: admin / <the password printed by bootstrap-cluster.sh, or:>
+#   kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
 ```
 
 ## 7. The deploy loop (GitOps)

@@ -1,18 +1,12 @@
 # Self-managed PostgreSQL (StatefulSet + PVC). For a heavier-duty setup, swap in
 # the CloudNativePG operator; for the showcase this is a single durable instance.
-# NOTE: the password here is a demo placeholder — in production source it from a
-# SealedSecret / External Secrets Operator, not plaintext in Git.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-  namespace: billfree
-type: Opaque
-stringData:
-  POSTGRES_USER: billfree
-  POSTGRES_PASSWORD: REDACTED-DEV-PLACEHOLDER
-  POSTGRES_DB: billfree
----
+#
+# [SECURITY] The `postgres-secret` is intentionally NOT defined here. A plaintext
+# password in Git is committed forever and visible to anyone with repo access.
+# It is created out-of-band (with a randomly-generated password) by
+# scripts/bootstrap-cluster.sh, exactly like billfree-app-secrets. ArgoCD does
+# not manage it. For a fuller setup use a SealedSecret / External Secrets Operator.
+# The StatefulSet below consumes it via envFrom: secretRef: postgres-secret.
 apiVersion: v1
 kind: Service
 metadata:

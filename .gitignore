@@ -38,7 +38,9 @@ npm-debug.log*
 # ── Local archives ────────────────────────────────────────────
 apps/web/_archive/
 
-# ── Terraform (state + generated key + kubeconfig — NEVER commit) ──
+# ── Terraform (state + plans + generated key + kubeconfig — NEVER commit) ──
+# Plan files can embed sensitive resource values (keys, tokens) and are
+# environment-specific binary artifacts, not source.
 infra/terraform/.terraform/
 infra/terraform/.terraform.lock.hcl
 infra/terraform/*.tfstate
@@ -49,4 +51,13 @@ infra/terraform/terraform.tfvars
 infra/terraform/.ssh/
 infra/terraform/*.pem
 infra/terraform/kubeconfig
+tfplan
+*.tfplan
+**/tfplan
+**/*.plan
 crash.log
+
+# ── Editor backups ────────────────────────────────────────────
+*~
+*.swp
+*.bak

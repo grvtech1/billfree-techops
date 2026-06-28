@@ -24,18 +24,49 @@ kubectl apply -f "https://raw.githubusercontent.com/rancher/local-path-provision
 kubectl patch storageclass local-path \
   -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
-echo "==> 2/4  namespace + application secret (generated, out-of-band — never in Git)"
+echo "==> 2/4  namespaces + secrets (generated, out-of-band — never in Git)"
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+# Single source of truth for the DB password — shared by postgres-secret and the
+# DATABASE_URL inside billfree-app-secrets so they can never drift apart.
+if kubectl -n "$NS" get secret postgres-secret >/dev/null 2>&1; then
+  echo "         postgres-secret already exists — reusing its password"
+  DB_PASSWORD="$(kubectl -n "$NS" get secret postgres-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d)"
+else
+  DB_PASSWORD="$(openssl rand -hex 24)"
+  kubectl -n "$NS" create secret generic postgres-secret \
+    --from-literal=POSTGRES_USER="billfree" \
+    --from-literal=POSTGRES_PASSWORD="$DB_PASSWORD" \
+    --from-literal=POSTGRES_DB="billfree"
+  echo "         created postgres-secret with a generated password"
+fi
+
 if kubectl -n "$NS" get secret billfree-app-secrets >/dev/null 2>&1; then
   echo "         billfree-app-secrets already exists — leaving it untouched"
 else
   INTAKE_KEY="$(openssl rand -hex 24)"
+  # GOOGLE_CLIENT_IDS: comma-separated OAuth audiences. Production auth-service
+  # REQUIRES this (it refuses to start when empty). For a Google-less demo, set
+  # REQUIRE_GOOGLE_AUTH=false in the deploy/apps/auth-service values instead.
   kubectl -n "$NS" create secret generic billfree-app-secrets \
     --from-literal=JWT_SECRET="$(openssl rand -hex 24)" \
     --from-literal=JWT_ISSUER="billfree-techops" \
-    --from-literal=DATABASE_URL="postgres://billfree:REDACTED-DEV-PLACEHOLDER@postgres:5432/billfree" \
-    --from-literal=INTAKE_API_KEY="$INTAKE_KEY"
-  echo "         created. WhatsApp INTAKE_API_KEY = $INTAKE_KEY"
+    --from-literal=DATABASE_URL="postgres://billfree:${DB_PASSWORD}@postgres:5432/billfree" \
+    --from-literal=INTAKE_API_KEY="$INTAKE_KEY" \
+    --from-literal=GOOGLE_CLIENT_IDS="${GOOGLE_CLIENT_IDS:-}"
+  echo "         created billfree-app-secrets. WhatsApp INTAKE_API_KEY = $INTAKE_KEY"
+fi
+
+# Grafana admin credentials — consumed by the monitoring app's existingSecret.
+if kubectl -n monitoring get secret grafana-admin >/dev/null 2>&1; then
+  echo "         grafana-admin already exists — leaving it untouched"
+else
+  GRAFANA_PASSWORD="$(openssl rand -hex 16)"
+  kubectl -n monitoring create secret generic grafana-admin \
+    --from-literal=admin-user="admin" \
+    --from-literal=admin-password="$GRAFANA_PASSWORD"
+  echo "         created grafana-admin. Grafana login: admin / $GRAFANA_PASSWORD"
 fi
 
 echo "==> 3/4  ArgoCD (--server-side avoids the large-CRD annotation limit)"

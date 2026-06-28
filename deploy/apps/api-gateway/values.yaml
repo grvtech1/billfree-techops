@@ -25,10 +25,18 @@ env:
     value: http://calllog-service:80
   - name: REPORT_SERVICE_URL
     value: http://report-service:80
+  # [SECURITY] Lock CORS to the exact SPA origin(s). A wildcard with
+  # credentials:true is both spec-invalid (browsers reject it) and a signal that
+  # no allow-list is enforced. Comma-separate additional origins as needed.
   - name: CORS_ORIGINS
-    value: "*"
+    value: "https://billfreetech.pages.dev"
   - name: RATE_LIMIT_MAX
     value: "200"
+  # [SECURITY] Tighter per-IP limit on the unauthenticated /auth/* surface to
+  # blunt credential-stuffing / token-minting floods (gateway applies this to
+  # auth routes specifically; see services/api-gateway/src/server.ts).
+  - name: AUTH_RATE_LIMIT_MAX
+    value: "20"
 envFrom:
   - secretRef:
       name: billfree-app-secrets

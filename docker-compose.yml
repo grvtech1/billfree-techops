@@ -7,11 +7,17 @@ name: billfree-techops
 
 x-service-env: &service-env
   NODE_ENV: production
-  JWT_SECRET: REDACTED-DEV-PLACEHOLDER
+  # Secrets are interpolated from the environment (see .env.example → copy to .env,
+  # which is git-ignored). The `:-` defaults are throwaway local-only values so the
+  # stack still boots with zero config; never reuse them anywhere real.
+  JWT_SECRET: ${JWT_SECRET:-dev-only-not-a-real-secret-0001}
   JWT_ISSUER: billfree-techops
   LOG_LEVEL: info
   # Enables the WhatsApp/portal intake routes (ticket-service + gateway read it).
-  INTAKE_API_KEY: REDACTED-DEV-PLACEHOLDER
+  INTAKE_API_KEY: ${INTAKE_API_KEY:-dev-only-not-a-real-intake-key-01}
+  # Local stack bypasses Google OAuth so you can log in by email; production
+  # ENFORCES it (auth-service refuses to start without GOOGLE_CLIENT_IDS).
+  REQUIRE_GOOGLE_AUTH: ${REQUIRE_GOOGLE_AUTH:-false}
 
 x-node-healthcheck: &node-healthcheck
   test: ['CMD', 'node', '-e', "fetch('http://localhost:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -25,7 +31,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: billfree
-      POSTGRES_PASSWORD: billfree
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-billfree}
       POSTGRES_DB: billfree
     ports: ['5432:5432']
     volumes: ['pgdata:/var/lib/postgresql/data']
@@ -47,7 +53,7 @@ services:
   migrate:
     build: { context: ., dockerfile: db/Dockerfile }
     environment:
-      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+      DATABASE_URL: postgres://billfree:${POSTGRES_PASSWORD:-billfree}@postgres:5432/billfree
     depends_on:
       postgres: { condition: service_healthy }
     restart: 'no'
@@ -67,7 +73,7 @@ services:
       <<: *service-env
       SERVICE_NAME: ticket-service
       PORT: 8080
-      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+      DATABASE_URL: postgres://billfree:${POSTGRES_PASSWORD:-billfree}@postgres:5432/billfree
     depends_on:
       postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -80,7 +86,7 @@ services:
       <<: *service-env
       SERVICE_NAME: analytics-service
       PORT: 8080
-      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+      DATABASE_URL: postgres://billfree:${POSTGRES_PASSWORD:-billfree}@postgres:5432/billfree
     depends_on:
       postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -93,7 +99,7 @@ services:
       <<: *service-env
       SERVICE_NAME: calllog-service
       PORT: 8080
-      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+      DATABASE_URL: postgres://billfree:${POSTGRES_PASSWORD:-billfree}@postgres:5432/billfree
     depends_on:
       postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -106,7 +112,7 @@ services:
       <<: *service-env
       SERVICE_NAME: report-service
       PORT: 8080
-      DATABASE_URL: postgres://billfree:billfree@postgres:5432/billfree
+      DATABASE_URL: postgres://billfree:${POSTGRES_PASSWORD:-billfree}@postgres:5432/billfree
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -132,7 +138,8 @@ services:
       ANALYTICS_SERVICE_URL: http://analytics-service:8080
       CALLLOG_SERVICE_URL: http://calllog-service:8080
       REPORT_SERVICE_URL: http://report-service:8080
-      CORS_ORIGINS: '*'
+      # Local SPA origin; override via .env for other setups.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       RATE_LIMIT_MAX: 200
     depends_on:
       auth-service: { condition: service_healthy }

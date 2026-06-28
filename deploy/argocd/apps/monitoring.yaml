@@ -16,7 +16,13 @@ spec:
       releaseName: kube-prometheus-stack
       values: |
         grafana:
-          adminPassword: REDACTED-DEV-PLACEHOLDER
+          # [SECURITY] No plaintext admin password in Git. The credentials live in
+          # a `grafana-admin` Secret (keys: admin-user, admin-password) created
+          # out-of-band by scripts/bootstrap-cluster.sh with a generated password.
+          admin:
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
         prometheus:
           prometheusSpec:
             # Scrape every ServiceMonitor, not only those created by this chart.
