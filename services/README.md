@@ -7,8 +7,8 @@ health probes) and the `@billfree/shared` contract.
 
 | Service | Port | Responsibility | Data |
 | --- | --- | --- | --- |
-| `api-gateway` | 8080 | Edge: CORS, rate-limit, JWT enforcement, reverse-proxy to services | — |
-| `auth-service` | 8080 | Issues + verifies JWTs (RBAC roles) | directory |
+| `api-gateway` | 8080 | Edge: CORS, rate-limit, JWT enforcement (Bearer **or** httpOnly cookie), reverse-proxy to services | — |
+| `auth-service` | 8080 | Issues + verifies JWTs (RBAC roles); delivers token as httpOnly `bt_token` cookie — never in response body | directory |
 | `ticket-service` | 8080 | Ticket CRUD (list/get/create/update) | Postgres |
 | `analytics-service` | 8080 | Read-only analytics (status, top-POS, leaderboard) | Postgres (read) |
 | `calllog-service` | 8080 | Call/CDR event log (list + write, role-scoped) | Postgres |
@@ -44,7 +44,13 @@ Each service is independently:
 - **Shared error envelope** — every error leaves as `{ success, error: "[E0NN] …" }`,
   the same shape (and codes) the React SPA already parses via `@billfree/shared`.
 - **Defense in depth** — the gateway authenticates at the edge AND each service
-  re-verifies the JWT.
+  re-verifies the JWT. `extractToken(req)` in `service-common` reads
+  `Authorization: Bearer` first, then falls back to the raw `Cookie` header
+  (`bt_token`) — so both browser (cookie) and API-client (Bearer) paths work.
+- **Fastify 5 logger compat** — `buildServer(deps)` detects whether `deps.logger`
+  is a pre-created pino instance (object) or a boolean/undefined, and routes to
+  `loggerInstance:` or `logger:` accordingly. Fastify 5 changed the API: passing a
+  pino instance to `logger:` throws `FST_ERR_LOG_INVALID_LOGGER_CONFIG`.
 
 ## Local
 

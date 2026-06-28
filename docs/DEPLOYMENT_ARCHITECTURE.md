@@ -2,7 +2,8 @@
 
 How BillFree TechOps goes from a developer's commit to running pods on a
 **self-managed Kubernetes cluster on AWS** — and how it was actually deployed
-(including the real failures hit along the way).
+(including the real failures hit along the way, across two full cluster
+provision-and-teardown cycles).
 
 The system is delivered across **three planes connected only by Git**. No human
 and no CI job ever runs `kubectl` against the cluster — the single path into
@@ -156,23 +157,38 @@ before the services that depend on it.
 
 ## 5. Field notes — what actually broke (and the fix)
 
-Real issues hit during the first live deploy. These are the difference between a
-diagram and a running system.
+Real issues hit across two full provision-and-teardown cycles. These are the
+difference between a diagram and a running system.
+
+### Deploy 1 — initial cluster build
 
 | # | Symptom | Root cause | Fix |
 | --- | --- | --- | --- |
 | 1 | CI "startup failure", `(Unnamed workflow)` | `aquasecurity/trivy-action@0.24.0` — version doesn't exist; GitHub resolves all `uses:` at startup | pin to `@master` |
 | 2 | `RunInstances … not eligible for Free Tier` | account restricted to free-tier instance types | switch to free-tier-eligible `c7i-flex.large` / `m7i-flex.large` |
 | 3 | SSH to nodes times out | `checkip` reported a different IP than the real egress (CGNAT) | open SG to real IP / widen temporarily |
-| 4 | `kubectl` TLS error: cert valid for `10.x`, not public IP | kubeadm apiserver cert SAN excludes the public IP | `insecure-skip-tls-verify` for remote admin (or add `--apiserver-cert-extra-sans`) |
-| 5 | Postgres PVC `Pending` forever | bare kubeadm has **no default StorageClass** | install Rancher `local-path-provisioner`, mark default |
-| 6 | All pg-using services `CrashLoopBackOff`:<br/>`Dynamic require of "events" not supported` | tsup bundled CommonJS `pg` into ESM; its `require()` fails at runtime (tests never run the bundled artifact) | add `createRequire` banner to tsup configs |
+| 4 | `kubectl` TLS error: cert valid for `10.x`, not public IP | kubeadm apiserver cert SAN excludes the public IP | pass `--apiserver-cert-extra-sans=<public-ip>` to `kubeadm init` in cloud-init |
+| 5 | Postgres PVC `Pending` forever | bare kubeadm has **no default StorageClass** | install Rancher `local-path-provisioner` v0.0.30, mark default |
+| 6 | All pg-using services `CrashLoopBackOff`: `Dynamic require of "events" not supported` | tsup bundled CommonJS `pg` into ESM; its `require()` fails at runtime (tests never run the bundled artifact) | add `createRequire` banner to tsup configs |
 | 7 | `web` crash: `mkdir /var/cache/nginx … denied` | chart's non-root securityContext merged `runAsUser:1000`; stock nginx can't write cache | `runAsUser: 0` for web |
 | 8 | `platform` stuck, Postgres never deploys | migrate was a **PreSync** hook needing Postgres from the same app → deadlock | change hook to **PostSync** |
 | 9 | Dashboard login hangs at "Signing in…" | web nginx proxies `api-gateway:8080`, but the K8s Service exposed `:80` | set gateway Service port to `8080` |
 
 Bugs 6–9 were fixed in code and rolled out **through the same GitOps pipeline**
 (commit → CI → ArgoCD), proving the loop end-to-end rather than hand-patching pods.
+
+### Deploy 2 — cluster rebuild after teardown
+
+| # | Symptom | Root cause | Fix |
+| --- | --- | --- | --- |
+| 10 | `terraform apply` fails: `ssh_allowed_cidr` "must not be world-open" | `variables.tf` has a custom `validation` block that rejects `0.0.0.0/0` on security grounds | Fetch real egress IP (`curl -s https://checkip.amazonaws.com`) and set it as `/32` in `terraform.tfvars` |
+| 11 | `kubectl apply -n argocd -f install.yaml` fails: "Too long: must have at most 262144 bytes" on `ApplicationSet` CRD | ArgoCD CRDs carry large schemas; client-side apply stores the full manifest as a `last-applied` annotation, which has a hard 256 KiB limit per resource | `kubectl apply -n argocd --server-side --force-conflicts -f install.yaml` — server-side apply stores ownership metadata only, not the full manifest |
+| 12 | All 6 service pods `CrashLoopBackOff`: `FST_ERR_LOG_INVALID_LOGGER_CONFIG` | **Fastify 5** changed the server-options API: pre-created pino `Logger` instances must go to `loggerInstance:`, not `logger:` (which now accepts only `boolean` or a pino options object). Tests passed because they pass `false`; production passes a real logger instance | Detect at runtime in every `buildServer()`: `typeof deps.logger === 'object'` → `{ loggerInstance: deps.logger }`, else → `{ logger: deps.logger ?? false }` |
+| 13 | `kubectl patch storageclass local-path -p '{...}'` fails in PowerShell: `invalid character 'm' looking for beginning of value` | PowerShell parses `'{}'` single-quoted strings; the JSON payload is mangled before it reaches kubectl on Windows | Write the JSON patch to a temp file with `[System.IO.File]::WriteAllText()` and use `kubectl patch --patch-file <tmp>` |
+
+The `bootstrap-cluster.sh` script in `scripts/` encodes all lessons from both deploys:
+it installs the storage provisioner before ArgoCD, uses `--server-side` for the
+ArgoCD CRD install, and is idempotent so it is safe to re-run after any partial failure.
 
 ---
 

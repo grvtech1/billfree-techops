@@ -38,27 +38,55 @@ applying `db/migrations/*` before the services start.
 
 ```bash
 cd infra/terraform
-cp terraform.tfvars.example terraform.tfvars   # lock ssh_allowed_cidr / api_allowed_cidr to your IP
+cp terraform.tfvars.example terraform.tfvars
+# IMPORTANT: lock ssh_allowed_cidr / api_allowed_cidr to your real egress IP — the
+# validation rule in variables.tf will reject 0.0.0.0/0.
+# Find your IP: curl -s https://checkip.amazonaws.com   → set as x.x.x.x/32
 terraform init
 terraform apply
-terraform output fetch_kubeconfig              # prints the scp + kubectl steps
 ```
 
 This stands up 1 control-plane + N workers on EC2, bootstrapped by cloud-init
-(`containerd` + `kubeadm init/join`, Calico CNI). Fetch the kubeconfig from the
-output, then:
+(`containerd` + `kubeadm init/join`, Calico CNI, `--apiserver-cert-extra-sans` for
+the public IP). Fetch the kubeconfig — the script patches the server URL and verifies
+TLS without skipping verification:
 
 ```bash
-export KUBECONFIG=$PWD/kubeconfig
-kubectl get nodes        # all Ready once Calico is up (~2-3 min)
+cd ../..
+scripts/fetch-kubeconfig.sh
+export KUBECONFIG=infra/terraform/kubeconfig
+kubectl get nodes        # all Ready once Calico is up (~2-3 min after apply)
 ```
+
+### 2a. Install a default StorageClass
+
+A bare kubeadm cluster has no default StorageClass. Install Rancher's
+`local-path-provisioner` before the apps land — otherwise the Postgres PVC hangs
+`Pending` forever:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml
+kubectl patch storageclass local-path \
+  -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+```
+
+> **One-command alternative**: `scripts/bootstrap-cluster.sh` combines steps 2a–5
+> into a single idempotent script (storage → namespaces/secrets → ArgoCD →
+> app-of-apps). Run it instead of steps 2a–5 if you want the full cluster up in one
+> shot.
 
 ## 3. Bootstrap ArgoCD
 
+ArgoCD CRDs are large — `kubectl apply` stores the full manifest as a `last-applied`
+annotation, which hits the 256 KiB per-resource limit. Use `--server-side` (stores
+ownership metadata only) and `--force-conflicts` to resolve any field-manager
+conflicts:
+
 ```bash
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl -n argocd rollout status deploy/argocd-server
+kubectl apply -n argocd --server-side --force-conflicts \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 ```
 
 ## 4. Create the bootstrap secrets (out-of-band)

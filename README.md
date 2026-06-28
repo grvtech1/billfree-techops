@@ -7,8 +7,9 @@ Terraform · Helm · GitHub Actions · ArgoCD.
 
 > **Proven live.** This stack has been provisioned end-to-end on AWS (a self-managed
 > `kubeadm` cluster on EC2), served real data through the gateway, and authenticated
-> a dashboard login — then torn down with `terraform destroy`. The exact deploy flow,
-> including the nine real bugs hit and fixed, is in
+> a dashboard login — then torn down and re-provisioned a second time with
+> `terraform destroy` / `terraform apply`. The exact deploy flow, including the
+> thirteen real bugs hit and fixed across both runs, is in
 > [docs/DEPLOYMENT_ARCHITECTURE.md](docs/DEPLOYMENT_ARCHITECTURE.md).
 
 > Origin story: the platform began as a React SPA + a modular Google Apps Script
@@ -85,12 +86,17 @@ via `packages/shared` (enforced by a contract test).
 
 ```bash
 nvm use && npm install
-npm test                       # 156 tests across all workspaces
+npm test                       # 170+ tests across all workspaces
 
 docker compose up --build      # full stack: postgres + 6 services + gateway + web
 # web → http://localhost:3000      gateway → http://localhost:8080
-curl -s localhost:8080/auth/token -H 'content-type: application/json' \
-  -d '{"email":"admin@billfree.in"}'          # → { token }
+
+# Login — token is delivered as an httpOnly cookie (bt_token), never in the body:
+curl -sc cookies.txt localhost:8080/auth/token -H 'content-type: application/json' \
+  -d '{"email":"admin@billfree.in"}'          # → { data: { user: { email, name, role } } }
+
+# Subsequent requests send the cookie automatically:
+curl -sb cookies.txt localhost:8080/api/tickets
 ```
 
 With no `VITE_GAS_URL`, the SPA also runs fully offline on built-in mock data

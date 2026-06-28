@@ -117,11 +117,27 @@ All share `@billfree/service-common` (config, pino logging, error model, pg pool
 JWT, Prometheus metrics, K8s probes) and the `@billfree/shared` contract. Each is
 DI-built (`buildServer(deps)`) so the HTTP surface is unit-tested with no DB.
 
+## Auth model — httpOnly cookie JWT
+
+The JWT is delivered as an **httpOnly cookie** (`bt_token`) — JavaScript can never
+read it, eliminating XSS token theft. The flow:
+
+| Step | Endpoint | What happens |
+| --- | --- | --- |
+| Login | `POST /auth/token` | auth-service verifies identity, signs a JWT, writes `bt_token` as `httpOnly; SameSite=lax` (in-cluster) or `SameSite=none; Secure` (cross-origin, e.g. Cloudflare Pages). Body returns `{ user }` metadata only — no token. |
+| Session restore | `GET /auth/verify` | Browser sends cookie automatically; service validates it and returns the user. Called on every SPA load instead of reading localStorage. |
+| Logout | `POST /auth/logout` | Clears the cookie server-side via `Set-Cookie: bt_token=; Max-Age=0`. |
+| Requests | any protected route | Browser sends cookie with `credentials: 'include'`. `extractToken(req)` in `service-common` reads `Authorization: Bearer` first, then falls back to the raw `Cookie` header — so curl / API clients can still use Bearer tokens. |
+
+The SPA (`gwFetch`) always sends `credentials: 'include'`. No token is ever stored in
+`localStorage` or Zustand state — only the user's email, name, and role.
+
 ## Request & trust flow
 
 `web (nginx) → api-gateway → service → Postgres`. The gateway authenticates at the
-edge; **each service re-verifies the JWT** (defense in depth). Errors carry an
-`[E0NN]` code the SPA already understands.
+edge via `extractToken()` (cookie or Bearer); **each downstream service re-verifies
+the JWT** (defense in depth). Errors carry an `[E0NN]` code the SPA already
+understands.
 
 ## Infrastructure (self-managed, not EKS)
 
