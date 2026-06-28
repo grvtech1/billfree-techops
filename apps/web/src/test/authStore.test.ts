@@ -10,7 +10,12 @@ vi.mock('@billfree/api', () => ({
 }));
 
 import { useAuthStore } from '@billfree/app-state';
-import { gatewayLogin, gatewayLogout, gatewayVerifySession, gatewayFetchAgents } from '@billfree/api';
+import {
+  gatewayLogin,
+  gatewayLogout,
+  gatewayVerifySession,
+  gatewayFetchAgents,
+} from '@billfree/api';
 
 const mockLogin = gatewayLogin as unknown as Mock;
 const mockLogout = gatewayLogout as unknown as Mock;
@@ -75,7 +80,7 @@ describe('authStore.loginWithGateway', () => {
     const s = useAuthStore.getState();
     expect(s.status).toBe('authenticated');
     expect(s.user?.email).toBe('agent1@billfree.in');
-    expect(s.user?.token).toBe('');  // JWT is in httpOnly cookie; JS never sees the token
+    expect(s.user?.token).toBe(''); // JWT is in httpOnly cookie; JS never sees the token
     expect(s.agents).toHaveLength(1);
     expect(mockFetchAgents).toHaveBeenCalledOnce();
     expect(mockFetchAgents).toHaveBeenCalledWith(); // no token arg
