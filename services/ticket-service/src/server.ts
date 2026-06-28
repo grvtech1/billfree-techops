@@ -29,7 +29,10 @@ export interface ServerDeps {
  * the full HTTP surface via app.inject() against an in-memory fake repository.
  */
 export function buildServer(deps: ServerDeps): FastifyInstance {
-  const app = Fastify({ logger: deps.logger ?? false, disableRequestLogging: false });
+  const logOpt = deps.logger && typeof deps.logger === 'object'
+    ? { loggerInstance: deps.logger as FastifyBaseLogger }
+    : { logger: (deps.logger ?? false) as boolean };
+  const app = Fastify({ ...logOpt, disableRequestLogging: false });
 
   registerErrorHandler(app);
   registerMetrics(app, deps.serviceName ?? 'ticket-service');

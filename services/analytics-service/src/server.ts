@@ -16,7 +16,10 @@ export interface AnalyticsServerDeps {
 }
 
 export function buildServer(deps: AnalyticsServerDeps): FastifyInstance {
-  const app = Fastify({ logger: deps.logger ?? false });
+  const logOpt = deps.logger && typeof deps.logger === 'object'
+    ? { loggerInstance: deps.logger as FastifyBaseLogger }
+    : { logger: (deps.logger ?? false) as boolean };
+  const app = Fastify(logOpt);
   registerErrorHandler(app);
   registerMetrics(app, 'analytics-service');
   registerHealth(app, { readiness: deps.readiness });

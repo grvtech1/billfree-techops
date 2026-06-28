@@ -46,7 +46,10 @@ const PROXY_UNDICI = {
 } as const;
 
 export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: deps.logger ?? false, trustProxy: true });
+  const logOpt = deps.logger && typeof deps.logger === 'object'
+    ? { loggerInstance: deps.logger as FastifyBaseLogger }
+    : { logger: (deps.logger ?? false) as boolean };
+  const app = Fastify({ ...logOpt, trustProxy: true });
 
   registerErrorHandler(app);
   await app.register(cors, { origin: deps.corsOrigins ?? true, credentials: true });

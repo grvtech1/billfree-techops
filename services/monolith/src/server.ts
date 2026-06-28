@@ -63,7 +63,10 @@ export interface MonolithDeps {
  * own requireAuth — no central gateway needed for edge auth.
  */
 export async function buildMonolith(deps: MonolithDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: deps.logger ?? false, trustProxy: true });
+  const logOpt = deps.logger && typeof deps.logger === 'object'
+    ? { loggerInstance: deps.logger as FastifyBaseLogger }
+    : { logger: (deps.logger ?? false) as boolean };
+  const app = Fastify({ ...logOpt, trustProxy: true });
 
   registerErrorHandler(app);
   await app.register(cors, { origin: deps.corsOrigins ?? true, credentials: true });
