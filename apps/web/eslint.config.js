@@ -6,7 +6,9 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', '_archive/**', 'coverage/**'] },
+  // e2e/** + playwright.config.ts are a local visual-regression tool (not app
+  // source, not shipped); they use Playwright's own TS setup, so skip app lint.
+  { ignores: ['dist/**', 'node_modules/**', '_archive/**', 'coverage/**', 'e2e/**', 'playwright.config.ts'] },
   js.configs.recommended,
   {
     files: ['src/**/*.{ts,tsx}'],
