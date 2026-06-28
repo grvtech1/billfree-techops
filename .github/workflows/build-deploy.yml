@@ -49,6 +49,7 @@ jobs:
           - { name: auth-service, dockerfile: services/auth-service/Dockerfile }
           - { name: web, dockerfile: apps/web/Dockerfile }
           - { name: db-migrate, dockerfile: db/Dockerfile }
+          - { name: monolith, dockerfile: services/monolith/Dockerfile }
     steps:
       - uses: actions/checkout@v7
         with:

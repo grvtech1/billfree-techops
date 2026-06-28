@@ -158,5 +158,31 @@ services:
       api-gateway: { condition: service_healthy }
     ports: ['3000:80']
 
+  # Modular monolith — all domain modules (auth/tickets/analytics/calllog/
+  # reports) in ONE process + ONE DB pool. Opt-in so it doesn't clash with the
+  # microservices above:  docker compose --profile monolith up monolith
+  monolith:
+    build: { context: ., dockerfile: services/monolith/Dockerfile }
+    profiles: ['monolith']
+    environment:
+      <<: *service-env
+      SERVICE_NAME: monolith
+      PORT: 8080
+      DATABASE_URL: postgres://billfree:${POSTGRES_PASSWORD:-billfree}@postgres:5432/billfree
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_FROM: ${SMTP_FROM:-reports@billfree.in}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin@billfree.in,manager@billfree.in}
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck: *node-healthcheck
+    ports: ['8090:8080']
+
 volumes:
   pgdata:

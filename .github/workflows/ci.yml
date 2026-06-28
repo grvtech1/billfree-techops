@@ -52,7 +52,7 @@ jobs:
 
       - name: Microservice tests
         run: |
-          for s in api-gateway auth-service ticket-service analytics-service calllog-service report-service; do
+          for s in api-gateway auth-service ticket-service analytics-service calllog-service report-service monolith; do
             echo "::group::$s"
             npm run test --workspace services/$s
             echo "::endgroup::"
@@ -90,7 +90,7 @@ jobs:
 
       - name: Helm lint all service releases
         run: |
-          for app in api-gateway auth-service ticket-service analytics-service calllog-service report-service web; do
+          for app in api-gateway auth-service ticket-service analytics-service calllog-service report-service web monolith; do
             echo "::group::helm lint $app"
             helm lint deploy/charts/microservice -f "deploy/apps/$app/values.yaml"
             echo "::endgroup::"
@@ -98,7 +98,7 @@ jobs:
 
       - name: Helm render all service releases
         run: |
-          for app in api-gateway auth-service ticket-service analytics-service calllog-service report-service web; do
+          for app in api-gateway auth-service ticket-service analytics-service calllog-service report-service web monolith; do
             echo "::group::helm template $app"
             helm template "$app" deploy/charts/microservice -f "deploy/apps/$app/values.yaml" >/tmp/"$app".yaml
             test -s /tmp/"$app".yaml

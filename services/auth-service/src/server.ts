@@ -1,31 +1,14 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import {
-  ok,
   registerErrorHandler,
   registerHealth,
   registerMetrics,
-  requireAuth,
-  signAccessToken,
-  unauthorized,
-  verifyAccessToken,
-  type AuthUser,
   type JwtConfig,
-  type Role,
 } from '@billfree/service-common';
-import { verifyGoogleIdToken } from './googleAuth.js';
+import { registerAuthRoutes, type Directory } from './routes.js';
 
-export interface Directory {
-  lookup(email: string): { name: string; role: Role } | null;
-  listAll(): Array<{ name: string; email: string; role: Role }>;
-}
-
-const TokenRequest = z.object({
-  email: z.string().email(),
-  name: z.string().min(1).max(120).optional(),
-  // [GAP-01] Google ID token — required in production, optional in dev.
-  googleIdToken: z.string().optional(),
-});
+// Re-exported so directory.ts and tests keep importing it from './server.js'.
+export type { Directory } from './routes.js';
 
 export interface AuthServerDeps {
   jwt: JwtConfig;
@@ -43,56 +26,15 @@ export function buildServer(deps: AuthServerDeps): FastifyInstance {
   registerHealth(app);
 
   // Enforce Google Auth in production, unless explicitly bypassed via env var (e.g. for testing/demo).
-  const requireGoogleAuth = process.env.NODE_ENV === 'production' && process.env.REQUIRE_GOOGLE_AUTH !== 'false';
+  const requireGoogleAuth =
+    process.env.NODE_ENV === 'production' && process.env.REQUIRE_GOOGLE_AUTH !== 'false';
 
-  // [GAP-01] Issue an access token for an authorized identity.
-  // Production: verify the Google ID token first, then authorize against directory.
-  // Development: allow bare email login for iteration against mock data.
-  app.post('/auth/token', async (req) => {
-    const { email, name, googleIdToken } = TokenRequest.parse(req.body);
-    const normalizedEmail = email.toLowerCase();
-
-    // ── Production: require Google OAuth verification ────────────────────
-    if (requireGoogleAuth) {
-      if (!googleIdToken) {
-        throw unauthorized('Google ID token is required in production');
-      }
-      const claims = await verifyGoogleIdToken(
-        googleIdToken,
-        deps.googleClientIds ?? [],
-      ).catch((e) => {
-        throw unauthorized(`Google token verification failed: ${(e as Error).message}`);
-      });
-      // The verified email must match the requested email.
-      if (claims.email.toLowerCase() !== normalizedEmail) {
-        throw unauthorized('Token email does not match requested email');
-      }
-    }
-
-    // ── Directory authorization (both prod and dev) ────────────────────
-    const found = deps.directory.lookup(normalizedEmail);
-    if (!found) throw unauthorized('Email not authorized');
-    const user: AuthUser = { sub: normalizedEmail, name: name ?? found.name, role: found.role };
-    const token = await signAccessToken(user, deps.jwt, deps.tokenTtlSeconds ?? 3600);
-    return ok({ token, user });
-  });
-
-  // Validate a bearer token and echo the resolved identity.
-  app.get('/auth/verify', async (req) => {
-    const header = req.headers.authorization ?? '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    if (!token) throw unauthorized();
-    const user = await verifyAccessToken(token, deps.jwt);
-    return ok({ user });
-  });
-
-  // [GAP-04] Return the agent directory for the Create Ticket dropdown.
-  // Authenticated: the directory contains agent PII (names, emails, roles) and
-  // is the enumeration step for any impersonation attack, so it requires a valid
-  // bearer token. The SPA calls this after login, not on anonymous bootstrap.
-  app.get('/auth/agents', { preHandler: requireAuth(deps.jwt) }, async () => {
-    const agents = deps.directory.listAll();
-    return ok({ agents, count: agents.length });
+  registerAuthRoutes(app, {
+    jwt: deps.jwt,
+    directory: deps.directory,
+    tokenTtlSeconds: deps.tokenTtlSeconds,
+    googleClientIds: deps.googleClientIds,
+    requireGoogleAuth,
   });
 
   return app;

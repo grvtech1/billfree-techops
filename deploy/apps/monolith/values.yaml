@@ -1,0 +1,53 @@
+# Modular-monolith Helm values (reuses the shared microservice chart).
+#
+# ADDITIVE / OPT-IN: this is intentionally NOT referenced by
+# deploy/argocd/apps, so ArgoCD does not deploy it automatically. To switch the
+# cluster from the 6 microservices to the monolith:
+#   1. add an ArgoCD Application pointing the chart at this values file,
+#   2. remove the 6 per-service Applications + the api-gateway,
+#   3. point the web nginx /api + /auth proxy at `monolith:80`.
+# The monolith serves the same routes (/auth/*, /tickets/*, /analytics/*,
+# /calls/*, /reports/*) so no client changes are needed.
+nameOverride: monolith
+image:
+  repository: ghcr.io/grvtech1/billfree-techops/monolith
+  tag: latest
+replicaCount: 2
+containerPort: 8080
+service:
+  # Matches the gateway/web proxy convention (proxy targets :80 -> container 8080).
+  port: 80
+env:
+  - name: SERVICE_NAME
+    value: monolith
+  - name: PORT
+    value: "8080"
+  - name: CORS_ORIGINS
+    value: "https://billfreetech.pages.dev"
+  - name: RATE_LIMIT_MAX
+    value: "200"
+  # Google OAuth is ENFORCED in production (REQUIRE_GOOGLE_AUTH unset -> true);
+  # GOOGLE_CLIENT_IDS comes from the shared secret. The process refuses to start
+  # if it is enforced but empty.
+envFrom:
+  # DATABASE_URL, JWT_*, INTAKE_API_KEY, GOOGLE_CLIENT_IDS, GEMINI/SMTP/ADMIN_*.
+  - secretRef:
+      name: billfree-app-secrets
+resources:
+  requests:
+    cpu: 150m
+    memory: 192Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+ingress:
+  enabled: true
+  className: nginx
+  host: api.billfree.example
+  path: /
+  pathType: Prefix

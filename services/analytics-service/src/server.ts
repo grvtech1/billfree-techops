@@ -1,16 +1,12 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import {
-  ok,
   registerErrorHandler,
   registerHealth,
   registerMetrics,
-  requireAuth,
   type JwtConfig,
 } from '@billfree/service-common';
 import type { AnalyticsRepository } from './repository.js';
-
-const TopPosQuery = z.object({ limit: z.coerce.number().int().min(1).max(50).default(10) });
+import { registerAnalyticsRoutes } from './routes.js';
 
 export interface AnalyticsServerDeps {
   repo: AnalyticsRepository;
@@ -24,47 +20,6 @@ export function buildServer(deps: AnalyticsServerDeps): FastifyInstance {
   registerErrorHandler(app);
   registerMetrics(app, 'analytics-service');
   registerHealth(app, { readiness: deps.readiness });
-
-  const auth = requireAuth(deps.jwt);
-
-  app.get('/analytics/status-breakdown', { preHandler: auth }, async () =>
-    ok(await deps.repo.statusBreakdown()),
-  );
-
-  app.get('/analytics/top-pos', { preHandler: auth }, async (req) => {
-    const { limit } = TopPosQuery.parse(req.query);
-    return ok(await deps.repo.topPos(limit));
-  });
-
-  app.get('/analytics/agent-leaderboard', { preHandler: auth }, async () =>
-    ok(await deps.repo.agentLeaderboard()),
-  );
-
-  // ── [GAP-16] Missing analytics endpoints ────────────────────────────────
-  const LimitQuery = z.object({ limit: z.coerce.number().int().min(1).max(50).default(10) });
-
-  app.get('/analytics/top-mids-same', { preHandler: auth }, async (req) => {
-    const { limit } = LimitQuery.parse(req.query);
-    return ok(await deps.repo.topMidsSame(limit));
-  });
-
-  app.get('/analytics/top-mids-diff', { preHandler: auth }, async (req) => {
-    const { limit } = LimitQuery.parse(req.query);
-    return ok(await deps.repo.topMidsDiff(limit));
-  });
-
-  app.get('/analytics/repeat-customers', { preHandler: auth }, async (req) => {
-    const { limit } = LimitQuery.parse(req.query);
-    return ok(await deps.repo.repeatCustomers(limit));
-  });
-
-  app.get('/analytics/concern-trend', { preHandler: auth }, async () =>
-    ok(await deps.repo.concernTrend()),
-  );
-
-  app.get('/analytics/agent-matrix', { preHandler: auth }, async () =>
-    ok(await deps.repo.agentMatrix()),
-  );
-
+  registerAnalyticsRoutes(app, { repo: deps.repo, jwt: deps.jwt });
   return app;
 }
