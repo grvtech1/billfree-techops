@@ -1,7 +1,7 @@
 nameOverride: api-gateway
 image:
   repository: ghcr.io/grvtech1/billfree-techops/api-gateway
-  tag: "b55ee0eba85a130d838fea95d092b8faf6c65d5c"
+  tag: "b7fe79c0f4ef43e1da64e8ba9aec5d5776dc8570"
 replicaCount: 2
 containerPort: 8080
 service:
