@@ -25,7 +25,9 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/lib/**', 'src/store/**', 'src/hooks/**'],
+      // Components are now in scope too (ErrorBoundary has tests); keeping them
+      // included surfaces the remaining UI-coverage gap instead of hiding it.
+      include: ['src/lib/**', 'src/store/**', 'src/hooks/**', 'src/components/**'],
     },
   },
   define: {
