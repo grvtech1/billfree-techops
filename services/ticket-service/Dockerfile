@@ -14,6 +14,8 @@ RUN npm run build --workspace services/ticket-service
 
 # ─── Runtime stage ───────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
+# Patch OS packages in the base image so Trivy-flagged Debian CVEs are cleared.
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -26,6 +28,9 @@ RUN npm pkg delete dependencies.@billfree/shared dependencies.@billfree/service-
 COPY --from=builder /repo/services/ticket-service/dist ./dist
 
 # Run as the unprivileged built-in node user.
+# Drop bundled npm from the runtime image (not used at runtime) — removes
+# npm-bundled CVEs (e.g. node-tar) and shrinks the attack surface.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 USER node
 EXPOSE 8080
 # Liveness/readiness handled by K8s probes hitting /healthz and /readyz.

@@ -29,10 +29,12 @@ export function registerErrorHandler(app: FastifyInstance): void {
         data: null,
       });
     }
-    // Fastify's own validation errors carry a statusCode.
-    if ((err as { statusCode?: number }).statusCode === 400) {
+    // Fastify's own validation errors carry a statusCode. (Fastify 5 types the
+    // error-handler error as `unknown`, so narrow before reading .message.)
+    const e = err as { statusCode?: number; message?: string };
+    if (e.statusCode === 400) {
       reply.code(400);
-      return reply.send({ success: false, error: `[${ERROR_CODES.VALIDATION_FAILED}] ${err.message}`, data: null });
+      return reply.send({ success: false, error: `[${ERROR_CODES.VALIDATION_FAILED}] ${e.message ?? 'Validation failed'}`, data: null });
     }
     req.log.error({ err }, 'unhandled error');
     reply.code(500);

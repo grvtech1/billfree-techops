@@ -20,6 +20,12 @@ RUN VITE_BACKEND="$VITE_BACKEND" VITE_GATEWAY_URL="$VITE_GATEWAY_URL" VITE_GAS_U
 # NET_BIND_SERVICE). It writes its pid/temp under /tmp + /var/cache/nginx, which
 # the Helm values mount as emptyDir so the container can keep a read-only rootfs.
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+# Patch OS packages (clears Alpine CVEs Trivy flags). The base image sets
+# USER 101; switch to root just for the upgrade, then back to the unprivileged
+# user so the container still runs rootless.
+USER root
+RUN apk -U upgrade --no-cache
+USER 101
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /repo/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080

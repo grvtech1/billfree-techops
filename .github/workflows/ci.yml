@@ -30,15 +30,14 @@ jobs:
       - name: Prettier formatting check
         run: npm run format:check
 
-      # Dependency audit. Currently ADVISORY (|| true) because the only
-      # outstanding prod-dep advisories are in `undici`, pulled transitively by
-      # @fastify/http-proxy@9 → @fastify/reply-from. The fix is http-proxy v11,
-      # which requires a Fastify 4→5 migration across all services (tracked
-      # separately). Flip `|| true` to a hard fail once that lands.
-      # TODO(security): remove `|| true` after the Fastify 5 / http-proxy 11 bump.
-      - name: Dependency audit (production deps — advisory until Fastify 5)
-        run: npm audit --omit=dev --audit-level=high || true
+      # Production dependency audit is now a HARD GATE: the Fastify 5 /
+      # @fastify/http-proxy v11 upgrade pulls undici 7, clearing the prior
+      # undici advisories (prod tree is clean). New high+ prod-dep CVEs fail CI.
+      - name: Dependency audit (production deps — blocking on high+)
+        run: npm audit --omit=dev --audit-level=high
 
+      # Full tree stays advisory: remaining advisories are dev-only tooling
+      # (e.g. @google/clasp → googleapis) that never ships in a runtime image.
       - name: Dependency audit (full tree — advisory only)
         run: npm audit || true
 

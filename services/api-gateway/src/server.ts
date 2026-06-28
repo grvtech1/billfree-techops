@@ -1,5 +1,5 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRequest } from 'fastify';
-import httpProxy from '@fastify/http-proxy';
+import httpProxy, { type FastifyHttpProxyOptions } from '@fastify/http-proxy';
 import rateLimit from '@fastify/rate-limit';
 import cors from '@fastify/cors';
 import {
@@ -70,7 +70,10 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
   registerMetrics(app, 'api-gateway');
   registerHealth(app);
 
-  const auth = requireAuth(deps.jwt);
+  // @fastify/http-proxy v11 types its preHandler with an unusual `this` binding
+  // (ProxyPreHandlerHookHandler); our standard Fastify preHandler is runtime-
+  // compatible, so cast it to the proxy's expected type.
+  const auth = requireAuth(deps.jwt) as unknown as FastifyHttpProxyOptions['preHandler'];
 
   // Public — token issuance. Stricter per-route rate limit than the global one
   // because this is the unauthenticated, abuse-prone surface (token minting).
@@ -130,11 +133,12 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
   // Public external-channel intake (WhatsApp chatbot) — API-key auth, no JWT.
   // Proxied to ticket-service /intake/*, which re-checks the key (defense in depth).
   if (deps.intakeApiKey) {
+    const apiKeyGuard = requireApiKey(deps.intakeApiKey) as unknown as FastifyHttpProxyOptions['preHandler'];
     await app.register(httpProxy, {
       upstream: deps.upstreams.tickets,
       prefix: '/api/intake',
       rewritePrefix: '/intake',
-      preHandler: requireApiKey(deps.intakeApiKey),
+      preHandler: apiKeyGuard,
       undici: PROXY_UNDICI,
     });
 
@@ -143,7 +147,7 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
       upstream: deps.upstreams.calllog,
       prefix: '/api/calls/webhook',
       rewritePrefix: '/calls/webhook',
-      preHandler: requireApiKey(deps.intakeApiKey),
+      preHandler: apiKeyGuard,
       undici: PROXY_UNDICI,
     });
   }
