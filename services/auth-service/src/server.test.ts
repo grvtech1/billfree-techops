@@ -41,4 +41,17 @@ describe('auth-service', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().data.user.sub).toBe('agent1@billfree.in');
   });
+
+  it('/auth/agents rejects anonymous callers with 401 (no PII leak)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/auth/agents' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('/auth/agents returns the directory for an authenticated caller', async () => {
+    const issued = (await app.inject({ method: 'POST', url: '/auth/token', payload: { email: 'agent1@billfree.in' } })).json();
+    const res = await app.inject({ method: 'GET', url: '/auth/agents', headers: { authorization: `Bearer ${issued.data.token}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.count).toBe(1);
+    expect(res.json().data.agents[0].email).toBe('agent1@billfree.in');
+  });
 });

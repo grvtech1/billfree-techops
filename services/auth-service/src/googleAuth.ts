@@ -1,20 +1,34 @@
 /**
- * [GAP-01] Google ID-token verification — ported from GAS Auth.gs verifyIdToken_().
+ * [GAP-01] Google ID-token verification — production-grade.
  *
- * In production, the auth-service MUST verify Google OAuth credentials before
- * issuing internal JWTs. This module validates ID tokens against Google's public
- * tokeninfo endpoint, checking audience, issuer, email verification, and expiry.
+ * The auth-service MUST verify Google OAuth credentials before issuing internal
+ * JWTs. This module validates ID tokens **locally** against Google's published
+ * JWKS (JSON Web Key Set) using `jose`, checking signature, audience, issuer,
+ * email verification, and expiry.
  *
- * In development (NODE_ENV !== 'production'), verification is optional so devs
- * can iterate against mock data without a real Google OAuth flow.
+ * Why JWKS, not the tokeninfo endpoint: Google documents
+ * `https://oauth2.googleapis.com/tokeninfo` as a debugging aid that is NOT
+ * SLA-backed for production traffic — it adds a network round-trip per login,
+ * is a single point of failure, and can rate-limit you. `createRemoteJWKSet`
+ * fetches and caches Google's signing keys and verifies the RS256 signature
+ * offline, which is the approach Google's own client libraries use.
+ *
+ * Fail-closed: if no allowed client IDs are configured, every token is rejected.
+ * An empty allow-list previously skipped the audience check entirely, which
+ * meant a Google token minted for *any* application would have been accepted.
  */
 
-const TOKEN_INFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 
-const VALID_ISSUERS = new Set([
-  'accounts.google.com',
-  'https://accounts.google.com',
-]);
+// Google's OpenID Connect signing keys. `createRemoteJWKSet` caches the keys
+// and respects the cache-control headers Google sets, refetching only when a
+// previously-unseen `kid` appears. One shared instance per process.
+const GOOGLE_JWKS = createRemoteJWKSet(
+  new URL('https://www.googleapis.com/oauth2/v3/certs'),
+);
+
+// Accepted `iss` values per Google's OIDC discovery document.
+const VALID_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
 
 export interface GoogleTokenClaims {
   email: string;
@@ -27,7 +41,8 @@ export interface GoogleTokenClaims {
  * Verify a Google ID token and return the claims.
  * @param idToken  The Google-issued ID token (from Google Sign-In / GSI).
  * @param allowedClientIds  Accepted `aud` values (your Google OAuth Client IDs).
- * @throws Error if the token is invalid, expired, or from an untrusted issuer.
+ *                          MUST be non-empty — an empty list rejects all tokens.
+ * @throws Error if the token is invalid, expired, mis-audienced, or untrusted.
  */
 export async function verifyGoogleIdToken(
   idToken: string,
@@ -35,39 +50,39 @@ export async function verifyGoogleIdToken(
 ): Promise<GoogleTokenClaims> {
   if (!idToken) throw new Error('No Google ID token provided');
 
-  const res = await fetch(`${TOKEN_INFO_URL}?id_token=${encodeURIComponent(idToken)}`);
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Google tokeninfo returned ${res.status}: ${body.slice(0, 200)}`);
+  // Fail-closed: refuse to verify if we have no audience to check against.
+  if (allowedClientIds.length === 0) {
+    throw new Error(
+      'No Google client IDs configured (GOOGLE_CLIENT_IDS); refusing to verify token',
+    );
   }
 
-  const claims = (await res.json()) as Record<string, string>;
-
-  // Audience check — must match one of our registered Client IDs.
-  if (allowedClientIds.length > 0 && !allowedClientIds.includes(claims.aud ?? '')) {
-    throw new Error(`Token audience '${claims.aud}' not in allowed client IDs`);
+  // Verifies RS256 signature against Google's JWKS, plus issuer/audience/expiry
+  // in one step. `jose` throws on any failure (bad signature, expired, wrong
+  // aud/iss) — no token is trusted unless every check passes.
+  let payload: JWTPayload;
+  try {
+    ({ payload } = await jwtVerify(idToken, GOOGLE_JWKS, {
+      issuer: VALID_ISSUERS,
+      audience: allowedClientIds,
+      // Google ID tokens are RS256.
+      algorithms: ['RS256'],
+    }));
+  } catch (e) {
+    throw new Error(`Google token verification failed: ${(e as Error).message}`);
   }
 
-  // Issuer check
-  if (!VALID_ISSUERS.has(claims.iss ?? '')) {
-    throw new Error(`Token issuer '${claims.iss}' is not a trusted Google issuer`);
-  }
+  const email = typeof payload.email === 'string' ? payload.email : '';
+  if (!email) throw new Error('Google token has no email claim');
 
-  // Email verification
-  if (claims.email_verified !== 'true') {
-    throw new Error('Google email is not verified');
-  }
+  // Google sets email_verified as a boolean in the ID token (string only on the
+  // legacy tokeninfo endpoint). Accept either to be safe.
+  const emailVerified =
+    payload.email_verified === true || payload.email_verified === 'true';
+  if (!emailVerified) throw new Error('Google email is not verified');
 
-  // Expiry check (tokeninfo returns `exp` as a Unix timestamp string)
-  const exp = parseInt(claims.exp ?? '0', 10);
-  if (exp > 0 && exp * 1000 < Date.now()) {
-    throw new Error('Google ID token has expired');
-  }
+  const name = typeof payload.name === 'string' ? payload.name : email;
+  const picture = typeof payload.picture === 'string' ? payload.picture : undefined;
 
-  return {
-    email: claims.email ?? '',
-    name: claims.name ?? claims.email ?? '',
-    picture: claims.picture,
-    email_verified: true,
-  };
+  return { email, name, picture, email_verified: true };
 }

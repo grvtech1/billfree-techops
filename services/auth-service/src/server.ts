@@ -5,6 +5,7 @@ import {
   registerErrorHandler,
   registerHealth,
   registerMetrics,
+  requireAuth,
   signAccessToken,
   unauthorized,
   verifyAccessToken,
@@ -86,9 +87,10 @@ export function buildServer(deps: AuthServerDeps): FastifyInstance {
   });
 
   // [GAP-04] Return the agent directory for the Create Ticket dropdown.
-  // Mirrors GAS Auth.gs getAgentList() — public because the GAS version
-  // was callable from the frontend on bootstrap without auth.
-  app.get('/auth/agents', async () => {
+  // Authenticated: the directory contains agent PII (names, emails, roles) and
+  // is the enumeration step for any impersonation attack, so it requires a valid
+  // bearer token. The SPA calls this after login, not on anonymous bootstrap.
+  app.get('/auth/agents', { preHandler: requireAuth(deps.jwt) }, async () => {
     const agents = deps.directory.listAll();
     return ok({ agents, count: agents.length });
   });

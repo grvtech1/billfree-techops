@@ -69,8 +69,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem(SESSION_KEY, JSON.stringify(user));
       set({ user, status: 'authenticated' });
       // [GAP-04] Fetch agent directory for the Create Ticket dropdown (best-effort).
+      // The endpoint is authenticated, so pass the freshly-minted token.
       try {
-        const agents = (await gatewayFetchAgents()) as Agent[];
+        const agents = (await gatewayFetchAgents(user.token)) as Agent[];
         set({ agents });
       } catch (e) {
         console.warn('[Auth] agent directory fetch failed (non-fatal):', e);
@@ -87,9 +88,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const raw = localStorage.getItem(SESSION_KEY);
       if (raw) {
-        set({ user: JSON.parse(raw) as AppUser, status: 'authenticated' });
+        const parsed = JSON.parse(raw) as unknown;
+        // [SECURITY] Validate the shape before trusting it — JSON.parse only
+        // catches syntax errors, not a structurally-invalid (or tampered)
+        // object. A session without a string email+token is not a session.
+        if (!isValidSession(parsed)) {
+          localStorage.removeItem(SESSION_KEY);
+          set({ status: 'unauthenticated' });
+          return;
+        }
+        const user = parsed;
+        set({ user, status: 'authenticated' });
         // [GAP-04] Re-populate agents after session restore (best-effort, background).
-        gatewayFetchAgents()
+        gatewayFetchAgents(user.token)
           .then((agents) => set({ agents: agents as Agent[] }))
           .catch(() => { /* non-fatal */ });
         return;
@@ -105,6 +116,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null, status: 'unauthenticated' });
   },
 }));
+
+/** Narrow an untrusted parsed value to a usable AppUser session. */
+function isValidSession(v: unknown): v is AppUser {
+  if (typeof v !== 'object' || v === null) return false;
+  const u = v as Record<string, unknown>;
+  return typeof u.email === 'string' && u.email.length > 0 && typeof u.token === 'string';
+}
 
 /**
  * [SECURITY] Centralised auth-failure handler.

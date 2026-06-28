@@ -12,6 +12,8 @@ const env = loadEnv({
   INTAKE_API_KEY: z.string().min(16).optional(),
   CORS_ORIGINS: z.string().default('*'),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  REPORT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
 });
 
 const logger = createLogger({
@@ -35,6 +37,8 @@ async function main(): Promise<void> {
     intakeApiKey: env.INTAKE_API_KEY,
     corsOrigins,
     rateLimitMax: env.RATE_LIMIT_MAX,
+    authRateLimitMax: env.AUTH_RATE_LIMIT_MAX,
+    reportRateLimitMax: env.REPORT_RATE_LIMIT_MAX,
     logger,
   });
 

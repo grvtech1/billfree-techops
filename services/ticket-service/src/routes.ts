@@ -73,12 +73,14 @@ export function registerTicketRoutes(
   app.post('/tickets', { preHandler: requireAuth(jwt, [...WRITER_ROLES]) }, async (req, reply) => {
     const input = CreateTicketSchema.parse(req.body);
     const id = generateTicketId(new Date(), () => randomUUID().replace(/-/g, ''));
-    const created = await repo.create(newTicket(id, new Date().toISOString(), input));
-    await recordAudit({
+    const ticket = newTicket(id, new Date().toISOString(), input);
+    // Atomic: the ticket and its TICKET_CREATED audit commit together, so a
+    // ticket can never exist without its creation record.
+    const created = await repo.createWithAudit(ticket, {
       ticketId: id,
       actor: req.user?.sub ?? input.agentEmail,
       action: 'TICKET_CREATED',
-      newStatus: created.status,
+      newStatus: ticket.status,
     });
     reply.code(201);
     return ok(created);

@@ -300,12 +300,15 @@ export const gatewayApi: BackendApi = {
         body: { month, year, recipients },
       },
     );
+    // gwFetch guarantees success===true, but not that `data` is populated; guard
+    // rather than assert so a malformed envelope surfaces a clear error.
+    if (!res.data) throw new ApiError('E999', 'Email report returned no data');
     return {
       success: true,
-      message: res.data!.message,
-      mode: res.data!.mode,
-      html: res.data!.html,
-      error: res.data!.aiError,
+      message: res.data.message,
+      mode: res.data.mode,
+      html: res.data.html,
+      error: res.data.aiError,
     };
   },
 
@@ -324,13 +327,16 @@ export async function gatewayLogin(
     '/auth/token',
     { method: 'POST', body: { email, ...(name ? { name } : {}) } },
   );
-  const u = res.data!.user;
+  if (!res.data?.token || !res.data.user) {
+    throw new ApiError('E999', 'Login response missing token or user');
+  }
+  const { token, user: u } = res.data;
   return {
-    token: res.data!.token,
+    token,
     user: {
       email: u.sub,
       name: u.name,
-      token: res.data!.token,
+      token,
       role: u.role as AppUser['role'],
       isAdmin: u.role === 'admin',
     },
@@ -348,10 +354,16 @@ export async function gatewayFetchVersion(): Promise<number> {
   }
 }
 
-/** [GAP-04] Fetch the agent directory from auth-service via the gateway. */
-export async function gatewayFetchAgents(): Promise<Array<{ name: string; email: string; role: string }>> {
+/**
+ * [GAP-04] Fetch the agent directory from auth-service via the gateway.
+ * Requires a bearer token — the endpoint is authenticated (it exposes agent PII).
+ */
+export async function gatewayFetchAgents(
+  token: string,
+): Promise<Array<{ name: string; email: string; role: string }>> {
   const res = await gwFetch<{ agents: Array<{ name: string; email: string; role: string }>; count: number }>(
     '/auth/agents',
+    { token },
   );
   return res.data?.agents ?? [];
 }

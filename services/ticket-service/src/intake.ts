@@ -22,7 +22,9 @@ export function registerIntakeRoutes(
   app: FastifyInstance,
   deps: { repo: TicketRepository; agents: AgentRepository; audit: AuditRepository; apiKey: string },
 ): void {
-  const { repo, agents, audit, apiKey } = deps;
+  // `audit` remains in deps for the registration contract; creation auditing is
+  // now atomic via repo.createWithAudit, so it is not used directly here.
+  const { repo, agents, apiKey } = deps;
   const guard = requireApiKey(apiKey);
 
   // Create a ticket from the chatbot. Defaults: status "Not Completed",
@@ -31,16 +33,14 @@ export function registerIntakeRoutes(
     const input = IntakeTicketSchema.parse(req.body);
     const assignee = await agents.pickAssignee();
     const id = generateTicketId(new Date(), () => randomUUID().replace(/-/g, ''));
-    const created = await repo.create(
-      newIntakeTicket(id, new Date().toISOString(), input, assignee ?? ''),
-    );
-
-    // Audit the creation just like a dashboard create (best-effort).
-    try {
-      await audit.record({ ticketId: id, actor: 'whatsapp-bot', action: 'TICKET_CREATED', newStatus: created.status });
-    } catch (err) {
-      app.log.warn({ err, ticketId: id }, 'intake audit record failed (non-fatal)');
-    }
+    const ticket = newIntakeTicket(id, new Date().toISOString(), input, assignee ?? '');
+    // Atomic create + creation audit, same as the dashboard create path.
+    const created = await repo.createWithAudit(ticket, {
+      ticketId: id,
+      actor: 'whatsapp-bot',
+      action: 'TICKET_CREATED',
+      newStatus: ticket.status,
+    });
     if (!assignee) app.log.warn({ ticketId: id }, 'no active agent available — ticket created unassigned');
 
     reply.code(201);

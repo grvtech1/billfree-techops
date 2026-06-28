@@ -1,4 +1,4 @@
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRequest } from 'fastify';
 import httpProxy from '@fastify/http-proxy';
 import rateLimit from '@fastify/rate-limit';
 import cors from '@fastify/cors';
@@ -19,6 +19,11 @@ export interface GatewayDeps {
   intakeApiKey?: string;
   corsOrigins?: string[] | boolean;
   rateLimitMax?: number;
+  // Tighter limit applied specifically to the unauthenticated /auth/* surface
+  // (token minting) to blunt credential-stuffing. Defaults to a small number.
+  authRateLimitMax?: number;
+  // Tighter limit for the expensive /api/reports surface (DB-heavy + Gemini).
+  reportRateLimitMax?: number;
   logger?: FastifyBaseLogger | boolean;
 }
 
@@ -67,12 +72,20 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
 
   const auth = requireAuth(deps.jwt);
 
-  // Public — token issuance.
+  // Public — token issuance. Stricter per-route rate limit than the global one
+  // because this is the unauthenticated, abuse-prone surface (token minting).
   await app.register(httpProxy, {
     upstream: deps.upstreams.auth,
     prefix: '/auth',
     rewritePrefix: '/auth',
     undici: PROXY_UNDICI,
+    config: {
+      rateLimit: {
+        max: deps.authRateLimitMax ?? 20,
+        timeWindow: '1 minute',
+        keyGenerator: (req: FastifyRequest) => `ip:${req.ip}`,
+      },
+    },
   });
 
   // Protected — JWT enforced at the edge, then proxied.
@@ -103,6 +116,15 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
     rewritePrefix: '/reports',
     preHandler: auth,
     undici: PROXY_UNDICI,
+    // Reports are expensive: they load a month of tickets into memory and call
+    // the Gemini API. A much tighter per-caller limit than the global default
+    // protects the DB pool and caps Gemini spend. Keyed per-user (JWT sub).
+    config: {
+      rateLimit: {
+        max: deps.reportRateLimitMax ?? 10,
+        timeWindow: '1 minute',
+      },
+    },
   });
 
   // Public external-channel intake (WhatsApp chatbot) — API-key auth, no JWT.
@@ -128,7 +150,11 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
   // [GAP-22] Client error reporting — replaces GAS 'logclienterror' action.
   // The SPA's ErrorBoundary posts errors here; they're emitted via structured
   // logging (picked up by K8s / Cloud Logging) for observability.
-  app.post('/api/errors', async (req) => {
+  app.post('/api/errors', {
+    // Unauthenticated endpoint — keep a tight per-IP limit so it can't be used
+    // to flood log storage.
+    config: { rateLimit: { max: 30, timeWindow: '1 minute', keyGenerator: (req: FastifyRequest) => `ip:${req.ip}` } },
+  }, async (req) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     app.log.error({
       event: 'CLIENT_ERROR',

@@ -1,4 +1,4 @@
-import type { Pool } from '@billfree/service-common';
+import { withTransaction, type Pool, type Queryable } from '@billfree/service-common';
 import type { AuditRecord, CreateTicketInput, ListQuery, NewAuditEvent, Ticket } from './domain.js';
 
 /** Roster access for auto-assignment. */
@@ -21,9 +21,47 @@ export interface TicketRepository {
   list(q: ListQuery): Promise<ListResult>;
   getById(id: string): Promise<Ticket | null>;
   create(t: Ticket): Promise<Ticket>;
+  /**
+   * Persist a new ticket AND its first audit record atomically (one transaction).
+   * A ticket without a creation audit entry is a compliance gap, so the two
+   * writes must commit or roll back together — unlike later status-change audits
+   * which are intentionally best-effort.
+   */
+  createWithAudit(t: Ticket, event: NewAuditEvent): Promise<Ticket>;
   update(id: string, patch: { status?: string; reason?: string; pos?: string }): Promise<Ticket | null>;
   /** [GAP-20] Returns the newest ticket timestamp (epoch-ms) as a version counter. */
   latestVersion(): Promise<number>;
+}
+
+/** Shared INSERT for an audit record — works on a Pool or a transaction client. */
+async function insertAuditRecord(q: Queryable, e: NewAuditEvent): Promise<void> {
+  await q.query(
+    `INSERT INTO audit_log
+      (ticket_id, actor, action, previous_status, new_status, reason_added, duration_ms, severity)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [
+      e.ticketId, e.actor, e.action, e.previousStatus ?? null, e.newStatus ?? null,
+      e.reasonAdded ?? false, e.durationMs ?? null, e.severity ?? 'INFO',
+    ],
+  );
+}
+
+/** Shared INSERT for a ticket — works on a Pool or a transaction client. */
+async function insertTicket(q: Queryable, t: Ticket): Promise<Ticket> {
+  const res = await q.query<Ticket>(
+    `INSERT INTO tickets
+      (id, created_at, agent_email, it_email, requested_by, mid, business, pos,
+       support_type, concern, config_notes, remark, status, reason, phone, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+     RETURNING ${COLUMNS}`,
+    [
+      t.id, t.createdAt, t.agentEmail, t.itEmail, t.requestedBy, t.mid, t.business, t.pos,
+      t.supportType, t.concern, t.configNotes, t.remark, t.status, t.reason, t.phone, t.source,
+    ],
+  );
+  const row = res.rows[0];
+  if (!row) throw new Error('Ticket insert returned no row');
+  return row;
 }
 
 const COLUMNS = `
@@ -50,15 +88,29 @@ export class PgTicketRepository implements TicketRepository {
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const offset = (q.page - 1) * q.pageSize;
 
+    // COUNT(*) OVER() returns the full match count alongside the page in a SINGLE
+    // statement (one snapshot, one connection) — so `total` can't be stale
+    // relative to `rows` the way two separate pool.query() calls could be under
+    // concurrent writes.
+    const rowsRes = await this.pool.query<Ticket & { __total: number }>(
+      `SELECT ${COLUMNS}, COUNT(*) OVER()::int AS "__total"
+         FROM tickets ${whereSql}
+        ORDER BY created_at DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, q.pageSize, offset],
+    );
+    if (rowsRes.rows.length > 0) {
+      const total = rowsRes.rows[0].__total;
+      const rows = rowsRes.rows.map(({ __total, ...r }) => r as Ticket);
+      return { rows, total };
+    }
+    // Empty page (e.g. offset past the end): the window function yields no rows,
+    // so fall back to a plain count to keep pagination metadata correct.
     const countRes = await this.pool.query<{ count: string }>(
       `SELECT COUNT(*)::int AS count FROM tickets ${whereSql}`,
       params,
     );
-    const rowsRes = await this.pool.query<Ticket>(
-      `SELECT ${COLUMNS} FROM tickets ${whereSql} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-      [...params, q.pageSize, offset],
-    );
-    return { rows: rowsRes.rows, total: Number(countRes.rows[0]?.count ?? 0) };
+    return { rows: [], total: Number(countRes.rows[0]?.count ?? 0) };
   }
 
   async getById(id: string): Promise<Ticket | null> {
@@ -67,18 +119,17 @@ export class PgTicketRepository implements TicketRepository {
   }
 
   async create(t: Ticket): Promise<Ticket> {
-    const res = await this.pool.query<Ticket>(
-      `INSERT INTO tickets
-        (id, created_at, agent_email, it_email, requested_by, mid, business, pos,
-         support_type, concern, config_notes, remark, status, reason, phone, source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       RETURNING ${COLUMNS}`,
-      [
-        t.id, t.createdAt, t.agentEmail, t.itEmail, t.requestedBy, t.mid, t.business, t.pos,
-        t.supportType, t.concern, t.configNotes, t.remark, t.status, t.reason, t.phone, t.source,
-      ],
-    );
-    return res.rows[0];
+    return insertTicket(this.pool, t);
+  }
+
+  async createWithAudit(t: Ticket, event: NewAuditEvent): Promise<Ticket> {
+    // Both inserts share one transaction: either the ticket and its creation
+    // audit both land, or neither does. No half-written state on a crash.
+    return withTransaction(this.pool, async (client) => {
+      const created = await insertTicket(client, t);
+      await insertAuditRecord(client, event);
+      return created;
+    });
   }
 
   /** [GAP-20] Max created_at as epoch-ms — used by the SPA version-polling. */
@@ -138,15 +189,7 @@ export class PgAuditRepository implements AuditRepository {
   constructor(private readonly pool: Pool) {}
 
   async record(e: NewAuditEvent): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO audit_log
-        (ticket_id, actor, action, previous_status, new_status, reason_added, duration_ms, severity)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [
-        e.ticketId, e.actor, e.action, e.previousStatus ?? null, e.newStatus ?? null,
-        e.reasonAdded ?? false, e.durationMs ?? null, e.severity ?? 'INFO',
-      ],
-    );
+    await insertAuditRecord(this.pool, e);
   }
 
   async listByTicket(ticketId: string, page: number, pageSize: number): Promise<AuditListResult> {
@@ -165,9 +208,11 @@ export class PgAuditRepository implements AuditRepository {
 
   /** [GAP-21] Delete audit events older than `retentionDays` (default 90). */
   async archiveOldEvents(retentionDays = 90): Promise<number> {
+    // Table is `audit_log` (migration 0004) — the previous `audit_events` name
+    // did not exist and would have thrown "relation does not exist" if ever run.
     const res = await this.pool.query<{ count: string }>(
       `WITH deleted AS (
-         DELETE FROM audit_events
+         DELETE FROM audit_log
          WHERE created_at < NOW() - ($1 || ' days')::interval
          RETURNING 1
        ) SELECT COUNT(*)::int AS count FROM deleted`,

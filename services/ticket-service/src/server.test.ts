@@ -17,6 +17,9 @@ const INTAKE_KEY = 'whatsapp-intake-key-1234567890';
 // In-memory repository so the HTTP layer is testable without Postgres.
 class FakeRepo implements TicketRepository {
   store = new Map<string, Ticket>();
+  // Audit sink so createWithAudit can mirror the PG transaction (ticket + audit
+  // written together). Wired in beforeEach.
+  auditSink?: AuditRepository;
   async list(q: ListQuery): Promise<ListResult> {
     let rows = [...this.store.values()];
     if (q.status) rows = rows.filter((t) => t.status === q.status);
@@ -30,6 +33,11 @@ class FakeRepo implements TicketRepository {
   }
   async create(t: Ticket): Promise<Ticket> {
     this.store.set(t.id, t);
+    return t;
+  }
+  async createWithAudit(t: Ticket, event: NewAuditEvent): Promise<Ticket> {
+    this.store.set(t.id, t);
+    if (this.auditSink) await this.auditSink.record(event);
     return t;
   }
   async update(id: string, patch: { status?: string; reason?: string }): Promise<Ticket | null> {
@@ -98,6 +106,7 @@ let viewerToken: string;
 beforeEach(async () => {
   repo = new FakeRepo();
   audit = new FakeAuditRepo();
+  repo.auditSink = audit;
   agents = new FakeAgentRepo();
   app = buildServer({ repo, audit, agents, intakeApiKey: INTAKE_KEY, jwt: JWT, logger: false });
   agentToken = await signAccessToken({ sub: 'agent1@billfree.in', name: 'Agent One', role: 'agent' }, JWT);
