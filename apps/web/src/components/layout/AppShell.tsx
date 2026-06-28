@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ComponentType } from 'react';
 import type { Ticket } from '@billfree/web-core';
 import { useUiStore } from '@billfree/app-state';
 import { CreateTicketModal, UpdateTicketModal, TicketAuditModal } from '@billfree/feature-tickets';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import ToastContainer from '../common/Toast';
+import ErrorBoundary from '../common/ErrorBoundary';
 
 // Lazy-load heavy views from their feature packages (named exports → { default }).
 const DashboardView      = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.DashboardView })));
@@ -15,6 +16,21 @@ const HistoryView        = lazy(() => import('@billfree/feature-tickets').then(m
 const CallLogView        = lazy(() => import('@billfree/feature-calllog').then(m => ({ default: m.CallLogView })));
 const MonthlyReportView  = lazy(() => import('@billfree/feature-reports').then(m => ({ default: m.MonthlyReportView })));
 const SettingsView       = lazy(() => import('@billfree/feature-tickets').then(m => ({ default: m.SettingsView })));
+
+// View registry — only the active view is mounted (see below), so its hooks and
+// useMemo chains run only when visible. Cross-view state that must survive
+// navigation (filters, pagination) lives in the Zustand stores, not component
+// state, so conditional mounting does not lose it.
+const VIEWS: Record<string, ComponentType> = {
+  dashboard:     DashboardView,
+  master:        MasterDbView,
+  team:          TeamReportView,
+  analytics:     AnalyticsView,
+  history:       HistoryView,
+  calllog:       CallLogView,
+  monthlyreport: MonthlyReportView,
+  settings:      SettingsView,
+};
 
 function ViewSkeleton() {
   return (
@@ -31,39 +47,22 @@ export default function AppShell() {
   const modal      = useUiStore(s => s.modal);
   const closeModal = useUiStore(s => s.closeModal);
 
+  const ActiveView = VIEWS[activeView] ?? DashboardView;
+
   return (
     <div className="app-shell">
       <Sidebar />
       <div className="main-wrapper">
         <TopBar />
         <main className="main-content" id="main-content">
-          <Suspense fallback={<ViewSkeleton />}>
-            {/* All views rendered; visibility toggled via CSS to preserve state */}
-            <div className={activeView === 'dashboard' ? 'view-active' : 'view-hidden'}>
-              <DashboardView />
-            </div>
-            <div className={activeView === 'master' ? 'view-active' : 'view-hidden'}>
-              <MasterDbView />
-            </div>
-            <div className={activeView === 'team' ? 'view-active' : 'view-hidden'}>
-              <TeamReportView />
-            </div>
-            <div className={activeView === 'analytics' ? 'view-active' : 'view-hidden'}>
-              <AnalyticsView />
-            </div>
-            <div className={activeView === 'history' ? 'view-active' : 'view-hidden'}>
-              <HistoryView />
-            </div>
-            <div className={activeView === 'calllog' ? 'view-active' : 'view-hidden'}>
-              <CallLogView />
-            </div>
-            <div className={activeView === 'monthlyreport' ? 'view-active' : 'view-hidden'}>
-              <MonthlyReportView />
-            </div>
-            <div className={activeView === 'settings' ? 'view-active' : 'view-hidden'}>
-              <SettingsView />
-            </div>
-          </Suspense>
+          {/* Only the active view is mounted — lazy chunks load on demand and a
+              crash in one view is isolated (and recovers when you navigate away,
+              via the resetKey). */}
+          <ErrorBoundary resetKey={activeView}>
+            <Suspense fallback={<ViewSkeleton />}>
+              <ActiveView key={activeView} />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
 

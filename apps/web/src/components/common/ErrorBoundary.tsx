@@ -5,6 +5,12 @@ import { reportClientError } from '@billfree/api';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /**
+   * When this value changes, the boundary clears its error state. Pass the
+   * active view id so navigating away from a crashed view recovers it instead
+   * of showing the error screen forever.
+   */
+  resetKey?: unknown;
 }
 
 interface State {
@@ -32,6 +38,13 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     console.error('[ErrorBoundary] Unhandled error:', error, info.componentStack);
     // Best-effort report to the backend (no-op in dev/mock mode).
     reportClientError('react-error-boundary', error.message, error.stack ?? info.componentStack ?? '');
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    // Auto-recover when the reset key changes (e.g. user switched views).
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   handleRetry = () => {

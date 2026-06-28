@@ -6,11 +6,16 @@ import { useTicketStore } from '../ticketStore';
 
 export function useTickets() {
   const { user } = useAuthStore();
-  const { setRawData, version, isLoading } = useTicketStore();
+  const { setRawData, version } = useTicketStore();
   const showToast = useUiStore(s => s.showToast);
 
   const fetchData = useCallback(async () => {
-    if (!user || isLoading) return;
+    if (!user) return;
+    // Read isLoading from the store at call time, not from a closed-over render
+    // snapshot. Keying the guard on the live value prevents concurrent fetches
+    // (e.g. version-poll + tab-focus firing together) and stops `fetchData`'s
+    // identity from churning every time isLoading flips.
+    if (useTicketStore.getState().isLoading) return;
     useTicketStore.setState({ isLoading: true });
     try {
       const res = await api.getTicketData(user.token);
@@ -23,7 +28,7 @@ export function useTickets() {
     } finally {
       useTicketStore.setState({ isLoading: false });
     }
-  }, [user, isLoading, setRawData, showToast]);
+  }, [user, setRawData, showToast]);
 
   return { fetchData, version };
 }

@@ -107,6 +107,7 @@ export default function Sidebar() {
                   className={`nav-item ${isActive ? 'active' : ''}`}
                   onClick={() => setView(item.id)}
                   aria-current={isActive ? 'page' : undefined}
+                  aria-label={item.label}
                   data-tip={item.label}
                   style={{ animationDelay: `${(si * 2 + ii) * 0.05 + 0.05}s` } as React.CSSProperties}
                 >
