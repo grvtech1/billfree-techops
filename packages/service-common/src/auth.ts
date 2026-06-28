@@ -22,6 +22,38 @@ export interface JwtConfig {
   issuer: string;
 }
 
+/**
+ * Name of the httpOnly cookie that carries the access token. Using a cookie
+ * (not a JS-readable store) is what keeps the token out of reach of XSS.
+ */
+export const ACCESS_TOKEN_COOKIE = 'bt_token';
+
+/**
+ * Extract the bearer token from a request: the `Authorization: Bearer` header
+ * (machine clients, tests) OR the httpOnly `bt_token` cookie (browser SPA). The
+ * cookie is parsed straight off the raw header so this works on any service
+ * without registering a cookie plugin.
+ */
+export function extractToken(req: FastifyRequest): string {
+  const header = req.headers.authorization ?? '';
+  if (header.startsWith('Bearer ')) {
+    const t = header.slice(7).trim();
+    if (t) return t;
+  }
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    for (const part of cookieHeader.split(';')) {
+      const eq = part.indexOf('=');
+      if (eq === -1) continue;
+      const key = part.slice(0, eq).trim();
+      if (key === ACCESS_TOKEN_COOKIE) {
+        return decodeURIComponent(part.slice(eq + 1).trim());
+      }
+    }
+  }
+  return '';
+}
+
 const enc = (s: string) => new TextEncoder().encode(s);
 
 /** Mint a short-lived access token (used by auth-service / tests). */
@@ -55,8 +87,7 @@ export async function verifyAccessToken(token: string, cfg: JwtConfig): Promise<
  */
 export function requireAuth(cfg: JwtConfig, roles?: Role[]): preHandlerHookHandler {
   return async (req: FastifyRequest, _reply: FastifyReply) => {
-    const header = req.headers.authorization ?? '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    const token = extractToken(req);
     if (!token) throw unauthorized();
     const user = await verifyAccessToken(token, cfg);
     if (roles && roles.length > 0 && !roles.includes(user.role)) throw forbidden();

@@ -8,6 +8,8 @@ const env = loadEnv({
   ...jwtEnvShape,
   GOOGLE_CLIENT_IDS: z.string().optional().default(''),
   REQUIRE_GOOGLE_AUTH: z.enum(['true', 'false']).optional(),
+  // Cross-origin SPA (e.g. Cloudflare Pages) needs 'none'; same-origin uses 'lax'.
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).optional().default('lax'),
 });
 
 const logger = createLogger({
@@ -38,6 +40,9 @@ const app = buildServer({
   jwt: { secret: env.JWT_SECRET, issuer: env.JWT_ISSUER },
   directory: staticDirectory,
   googleClientIds,
+  // Secure cookies over HTTPS in production; 'none' sameSite also implies secure.
+  cookieSecure: env.NODE_ENV === 'production' || env.COOKIE_SAMESITE === 'none',
+  cookieSameSite: env.COOKIE_SAMESITE,
   logger,
 });
 

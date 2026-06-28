@@ -49,8 +49,13 @@ async function gwFetch<T>(
 ): Promise<Envelope<T>> {
   const res = await fetch(`${BASE}${path}`, {
     method: opts.method ?? 'GET',
+    // credentials:include sends the httpOnly session cookie cross-origin (Cloudflare Pages → gateway).
+    // For same-origin (nginx-proxied) it is a no-op.
+    credentials: 'include',
     headers: {
       'content-type': 'application/json',
+      // Bearer fallback: machine clients (tests, scripts) that pass a token explicitly.
+      // Browser SPA leaves token undefined — the cookie is sent automatically above.
       ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
     },
     ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
@@ -318,29 +323,63 @@ export const gatewayApi: BackendApi = {
   exportTickets: async () => ({ success: true }),
 };
 
-/** Exchange an email for a JWT + identity (auth-service via the gateway). */
+/**
+ * Exchange an email for an identity (auth-service via the gateway).
+ * The JWT is delivered as an httpOnly cookie — never returned in the response
+ * body — so the browser sends it automatically and JS/XSS can never read it.
+ */
 export async function gatewayLogin(
   email: string,
   name?: string,
-): Promise<{ token: string; user: AppUser }> {
-  const res = await gwFetch<{ token: string; user: { sub: string; name: string; role: string } }>(
+): Promise<{ user: AppUser }> {
+  const res = await gwFetch<{ user: { sub: string; name: string; role: string } }>(
     '/auth/token',
     { method: 'POST', body: { email, ...(name ? { name } : {}) } },
   );
-  if (!res.data?.token || !res.data.user) {
-    throw new ApiError('E999', 'Login response missing token or user');
+  if (!res.data?.user) {
+    throw new ApiError('E999', 'Login response missing user');
   }
-  const { token, user: u } = res.data;
+  const u = res.data.user;
   return {
-    token,
     user: {
       email: u.sub,
       name: u.name,
-      token,
+      token: '',   // JWT lives in httpOnly cookie — JS never sees it
       role: u.role as AppUser['role'],
       isAdmin: u.role === 'admin',
     },
   };
+}
+
+/**
+ * Verify the current session cookie and return the resolved identity.
+ * Returns null if there is no valid session (cookie absent or expired).
+ * Used on app load to restore the session without touching the token.
+ */
+export async function gatewayVerifySession(): Promise<AppUser | null> {
+  try {
+    const res = await gwFetch<{ user: { sub: string; name: string; role: string } }>('/auth/verify');
+    if (!res.data?.user) return null;
+    const u = res.data.user;
+    return {
+      email: u.sub,
+      name: u.name,
+      token: '',   // JWT lives in httpOnly cookie — JS never sees it
+      role: u.role as AppUser['role'],
+      isAdmin: u.role === 'admin',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Clear the server-side session cookie. */
+export async function gatewayLogout(): Promise<void> {
+  try {
+    await gwFetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // Best-effort — local state is cleared by the caller regardless.
+  }
 }
 
 /** [GAP-20] Fetch the data version from ticket-service (replaces constant-1 stub). */
@@ -356,14 +395,11 @@ export async function gatewayFetchVersion(): Promise<number> {
 
 /**
  * [GAP-04] Fetch the agent directory from auth-service via the gateway.
- * Requires a bearer token — the endpoint is authenticated (it exposes agent PII).
+ * Authenticated — the session cookie is sent automatically (credentials:include).
  */
-export async function gatewayFetchAgents(
-  token: string,
-): Promise<Array<{ name: string; email: string; role: string }>> {
+export async function gatewayFetchAgents(): Promise<Array<{ name: string; email: string; role: string }>> {
   const res = await gwFetch<{ agents: Array<{ name: string; email: string; role: string }>; count: number }>(
     '/auth/agents',
-    { token },
   );
   return res.data?.agents ?? [];
 }

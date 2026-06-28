@@ -219,17 +219,15 @@ describe('gatewayApi monthlyReport', () => {
 });
 
 describe('gatewayLogin', () => {
-  it('exchanges an email for a token + user', async () => {
+  it('returns user identity (JWT is in httpOnly cookie, not response body)', async () => {
     mockFetch({
       success: true,
-      data: {
-        token: 'jwt-123',
-        user: { sub: 'agent1@billfree.in', name: 'Agent One', role: 'agent' },
-      },
+      // Token is no longer returned in the body — only user profile.
+      data: { user: { sub: 'agent1@billfree.in', name: 'Agent One', role: 'agent' } },
     });
-    const { token, user } = await gatewayLogin('agent1@billfree.in');
-    expect(token).toBe('jwt-123');
+    const { user } = await gatewayLogin('agent1@billfree.in');
     expect(user.email).toBe('agent1@billfree.in');
+    expect(user.token).toBe('');
     expect(user.role).toBe('agent');
     expect(user.isAdmin).toBe(false);
   });

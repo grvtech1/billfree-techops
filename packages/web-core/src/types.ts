@@ -52,7 +52,7 @@ export interface Agent {
 export interface AppUser {
   email: string;
   name: string;
-  token: string;             // HMAC server token from GAS
+  token: string;             // GAS HMAC token (legacy path); '' in cookie-auth gateway path (cookie does auth)
   role: Role;
   isAdmin: boolean;
   picture?: string;

@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import type { AppUser, Agent } from '@billfree/web-core';
-import { fetchIdentity, gatewayLogin, gatewayFetchAgents } from '@billfree/api';
-
-const SESSION_KEY = 'bt_session';
+import { fetchIdentity, gatewayLogin, gatewayLogout, gatewayVerifySession, gatewayFetchAgents } from '@billfree/api';
 
 // Build-time GAS URL — defined in vite.config.ts. Empty in dev / standalone.
 declare const __GAS_URL__: string;
@@ -63,15 +61,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // ── Microservices backend: exchange an email for a JWT via auth-service ──
+  // The JWT is set as an httpOnly cookie server-side — never returned in the
+  // response body — so this function receives only the user profile.
   loginWithGateway: async (email, name) => {
     try {
       const { user } = await gatewayLogin(email, name);
-      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
       set({ user, status: 'authenticated' });
       // [GAP-04] Fetch agent directory for the Create Ticket dropdown (best-effort).
-      // The endpoint is authenticated, so pass the freshly-minted token.
+      // Cookie is sent automatically (credentials:include in gwFetch).
       try {
-        const agents = (await gatewayFetchAgents(user.token)) as Agent[];
+        const agents = (await gatewayFetchAgents()) as Agent[];
         set({ agents });
       } catch (e) {
         console.warn('[Auth] agent directory fetch failed (non-fatal):', e);
@@ -83,46 +82,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Restore a persisted JWT session on load (gateway mode).
+  // Restore the session on app load by asking the server to validate the
+  // httpOnly cookie. No localStorage — the token never touches JS memory.
   restoreSession: () => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        // [SECURITY] Validate the shape before trusting it — JSON.parse only
-        // catches syntax errors, not a structurally-invalid (or tampered)
-        // object. A session without a string email+token is not a session.
-        if (!isValidSession(parsed)) {
-          localStorage.removeItem(SESSION_KEY);
+    gatewayVerifySession()
+      .then((user) => {
+        if (user) {
+          set({ user, status: 'authenticated' });
+          // [GAP-04] Re-populate agents after session restore (best-effort, background).
+          gatewayFetchAgents()
+            .then((agents) => set({ agents: agents as Agent[] }))
+            .catch(() => { /* non-fatal */ });
+        } else {
           set({ status: 'unauthenticated' });
-          return;
         }
-        const user = parsed;
-        set({ user, status: 'authenticated' });
-        // [GAP-04] Re-populate agents after session restore (best-effort, background).
-        gatewayFetchAgents(user.token)
-          .then((agents) => set({ agents: agents as Agent[] }))
-          .catch(() => { /* non-fatal */ });
-        return;
-      }
-    } catch {
-      /* corrupt session — fall through to unauthenticated */
-    }
-    set({ status: 'unauthenticated' });
+      })
+      .catch(() => set({ status: 'unauthenticated' }));
   },
 
   logout: () => {
-    localStorage.removeItem(SESSION_KEY);
+    // Clear the server-side cookie first (best-effort), then drop local state.
+    void gatewayLogout();
     set({ user: null, status: 'unauthenticated' });
   },
 }));
-
-/** Narrow an untrusted parsed value to a usable AppUser session. */
-function isValidSession(v: unknown): v is AppUser {
-  if (typeof v !== 'object' || v === null) return false;
-  const u = v as Record<string, unknown>;
-  return typeof u.email === 'string' && u.email.length > 0 && typeof u.token === 'string';
-}
 
 /**
  * [SECURITY] Centralised auth-failure handler.

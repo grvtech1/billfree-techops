@@ -1,5 +1,6 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import {
   registerErrorHandler,
@@ -41,6 +42,8 @@ export interface MonolithDeps {
   // Google OAuth audiences + whether to enforce verification (production).
   googleClientIds?: string[];
   requireGoogleAuth?: boolean;
+  cookieSecure?: boolean;
+  cookieSameSite?: 'lax' | 'strict' | 'none';
   emailConfig?: MonolithEmailConfig;
   corsOrigins?: string[] | boolean;
   rateLimitMax?: number;
@@ -64,6 +67,7 @@ export async function buildMonolith(deps: MonolithDeps): Promise<FastifyInstance
 
   registerErrorHandler(app);
   await app.register(cors, { origin: deps.corsOrigins ?? true, credentials: true });
+  await app.register(cookie); // so the composed auth routes can set/clear the session cookie
   await app.register(rateLimit, { max: deps.rateLimitMax ?? 100, timeWindow: '1 minute' });
   registerMetrics(app, 'monolith');
   registerHealth(app, { readiness: deps.readiness });
@@ -79,6 +83,8 @@ export async function buildMonolith(deps: MonolithDeps): Promise<FastifyInstance
     directory: staticDirectory,
     googleClientIds: deps.googleClientIds,
     requireGoogleAuth: deps.requireGoogleAuth ?? false,
+    cookieSecure: deps.cookieSecure,
+    cookieSameSite: deps.cookieSameSite,
   });
 
   // ── Tickets (+ optional external intake) ─────────────────────────────

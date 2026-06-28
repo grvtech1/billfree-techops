@@ -3,6 +3,7 @@ import httpProxy, { type FastifyHttpProxyOptions } from '@fastify/http-proxy';
 import rateLimit from '@fastify/rate-limit';
 import cors from '@fastify/cors';
 import {
+  extractToken,
   registerErrorHandler,
   registerHealth,
   registerMetrics,
@@ -56,11 +57,13 @@ export async function buildServer(deps: GatewayDeps): Promise<FastifyInstance> {
     max: deps.rateLimitMax ?? 30,
     timeWindow: '1 minute',
     keyGenerator: (req) => {
-      const header = req.headers.authorization ?? '';
-      if (header.startsWith('Bearer ')) {
+      // Token may arrive as a Bearer header (machine clients) or the httpOnly
+      // session cookie (browser SPA). Decode the payload (no verification — the
+      // auth preHandler verifies later) just to key the limit per user.
+      const token = extractToken(req);
+      if (token) {
         try {
-          // Decode JWT payload without verification (auth preHandler verifies later).
-          const payload = JSON.parse(Buffer.from(header.slice(7).split('.')[1], 'base64url').toString());
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
           if (payload.sub) return `user:${payload.sub}`;
         } catch { /* fall through to IP */ }
       }
