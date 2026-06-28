@@ -81,3 +81,8 @@ securityContext:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Extra volumes + mounts (e.g. emptyDir scratch dirs so a container can keep
+# readOnlyRootFilesystem:true). Empty by default.
+volumes: []
+volumeMounts: []

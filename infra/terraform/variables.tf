@@ -52,14 +52,24 @@ variable "pod_cidr" {
   default     = "192.168.0.0/16"
 }
 
+# No default on purpose — these MUST be set explicitly (e.g. in terraform.tfvars)
+# so SSH and the Kubernetes API are never silently exposed to the whole internet.
 variable "ssh_allowed_cidr" {
-  description = "CIDR allowed to SSH to the nodes (lock this to your IP)."
+  description = "CIDR allowed to SSH to the nodes (lock this to your IP, e.g. 203.0.113.4/32)."
   type        = string
-  default     = "0.0.0.0/0"
+
+  validation {
+    condition     = !can(regex("/0$", var.ssh_allowed_cidr))
+    error_message = "ssh_allowed_cidr must not be world-open (no /0). Lock it to your IP, e.g. 203.0.113.4/32."
+  }
 }
 
 variable "api_allowed_cidr" {
-  description = "CIDR allowed to reach the Kubernetes API (6443)."
+  description = "CIDR allowed to reach the Kubernetes API (6443), e.g. 203.0.113.4/32."
   type        = string
-  default     = "0.0.0.0/0"
+
+  validation {
+    condition     = !can(regex("/0$", var.api_allowed_cidr))
+    error_message = "api_allowed_cidr must not be world-open (no /0). Lock it to your IP, e.g. 203.0.113.4/32."
+  }
 }

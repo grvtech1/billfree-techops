@@ -60,13 +60,10 @@ resource "aws_security_group" "cluster" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    description = "NodePort range"
-    from_port   = 30000
-    to_port     = 32767
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # NOTE: the 30000-32767 NodePort range is intentionally NOT exposed to the
+  # internet. Public traffic enters only via 80/443 (ingress-nginx). NodePort
+  # services remain reachable node-to-node through the `self` rule below; for
+  # ad-hoc access use `kubectl port-forward`.
   ingress {
     description = "All traffic between cluster nodes"
     from_port   = 0

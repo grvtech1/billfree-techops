@@ -3,7 +3,7 @@ image:
   repository: ghcr.io/grvtech1/billfree-techops/web
   tag: "fe5b3196a29acb419361a1cdc98ad498edd0d62b"
 replicaCount: 2
-containerPort: 80
+containerPort: 8080
 service:
   port: 80
 probes:
@@ -13,20 +13,30 @@ probes:
     path: /healthz
 metrics:
   enabled: false
-# Stock nginx's master process binds :80 and writes /var/cache/nginx + pid as root,
-# so override the chart's non-root defaults (the chart merges runAsUser:1000 in,
-# which is what blocked nginx from creating its cache dirs).
+# [SECURITY] Rootless nginx (nginxinc/nginx-unprivileged, UID 101, port 8080).
+# No root, no added capabilities, read-only rootfs. nginx's pid + temp dirs are
+# the only writable paths, mounted as emptyDir below.
 podSecurityContext:
-  runAsNonRoot: false
-  runAsUser: 0
-  fsGroup: 0
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  fsGroup: 101
 securityContext:
-  runAsUser: 0
+  runAsUser: 101
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop: ["ALL"]
-    add: ["NET_BIND_SERVICE", "CHOWN", "SETUID", "SETGID"]
+volumeMounts:
+  - name: nginx-tmp
+    mountPath: /tmp
+  - name: nginx-cache
+    mountPath: /var/cache/nginx
+volumes:
+  - name: nginx-tmp
+    emptyDir: {}
+  - name: nginx-cache
+    emptyDir: {}
 autoscaling:
   enabled: true
   minReplicas: 2

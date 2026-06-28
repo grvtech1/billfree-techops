@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Fetch the kubeconfig from the Terraform-provisioned control plane, point it at
-# the node's public IP, and disable cert verification.
+# Fetch the kubeconfig from the Terraform-provisioned control plane and point it
+# at the node's public IP.
 #
-# Why insecure-skip-tls-verify: kubeadm's apiserver serving cert is issued for the
-# cluster service IP + the node's PRIVATE IP, not the public IP we connect through.
-# Traffic is still TLS-encrypted; we only skip CA hostname verification (fine for a
-# short-lived demo reached over the internet). The production-correct alternative is
-# `kubeadm init --apiserver-cert-extra-sans <public-ip>`.
+# TLS verification is KEPT: control-plane.sh.tftpl passes
+# --apiserver-cert-extra-sans=<public-ip> to `kubeadm init`, so the apiserver
+# serving cert is valid for the public IP we connect through. No
+# insecure-skip-tls-verify needed.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -18,12 +17,14 @@ KEY="$(terraform output -raw ssh_private_key_path)"
 chmod 600 "$KEY" 2>/dev/null || true
 
 echo "==> fetching kubeconfig from control plane ($IP)"
-scp -i "$KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+# accept-new: trust the host key on first connect and pin it (vs. -o
+# StrictHostKeyChecking=no which disables verification entirely). For maximum
+# assurance, pre-seed known_hosts from the instance's console output fingerprint.
+scp -i "$KEY" -o StrictHostKeyChecking=accept-new \
   ubuntu@"$IP":/home/ubuntu/.kube/config ./kubeconfig
 
-# Point at the public IP and drop CA verification (see header).
+# Point the client at the public IP (the cert now includes it as a SAN).
 sed -i "s#https://[0-9.]*:6443#https://$IP:6443#" ./kubeconfig
-sed -i 's#certificate-authority-data:.*#insecure-skip-tls-verify: true#' ./kubeconfig
 
 echo "==> kubeconfig saved to $(pwd)/kubeconfig"
 echo

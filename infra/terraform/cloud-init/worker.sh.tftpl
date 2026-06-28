@@ -41,9 +41,17 @@ until timeout 1 bash -c "cat < /dev/null > /dev/tcp/${control_plane_ip}/6443"; d
   sleep 5
 done
 
-# CA verification skipped for unattended bootstrap; for production, pass
-# --discovery-token-ca-cert-hash sha256:<hash> from `kubeadm token create
-# --print-join-command` on the control plane instead.
+# The join targets the control plane's PRIVATE VPC IP (${control_plane_ip}),
+# reachable only inside the cluster security group — not over the internet — and
+# the bootstrap token now expires (24h, set on the control plane). CA hash
+# verification is still skipped here only because the hash isn't known until the
+# CP has initialised.
+#
+# PRODUCTION HARDENING (recommended next step): have the control plane publish
+# `kubeadm token create --print-join-command` (which includes
+# --discovery-token-ca-cert-hash) to an SSM Parameter, give workers an IAM
+# instance profile with ssm:GetParameter, and run that exact command here —
+# removing --discovery-token-unsafe-skip-ca-verification entirely.
 kubeadm join ${control_plane_ip}:6443 \
   --token ${token} \
   --discovery-token-unsafe-skip-ca-verification

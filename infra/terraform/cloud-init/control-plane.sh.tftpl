@@ -36,10 +36,20 @@ apt-get install -y kubelet kubeadm kubectl
 apt-mark hold kubelet kubeadm kubectl
 
 # ── Initialise the control plane ─────────────────────────────────────────────
+# Fetch this node's public IP via IMDSv2 and add it as a cert SAN, so kubectl
+# from outside can verify TLS properly (no insecure-skip-tls-verify needed).
+IMDS_TOKEN="$(curl -fsS -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' || true)"
+PUBLIC_IP="$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
+SANS_ARG=""
+if [ -n "$PUBLIC_IP" ]; then SANS_ARG="--apiserver-cert-extra-sans=$PUBLIC_IP"; fi
+
+# Token TTL is the kubeadm default (24h) — NOT 0/never-expiring. A standing
+# bootstrap token is a permanent cluster-join credential; let it expire.
 kubeadm init \
   --pod-network-cidr=${pod_cidr} \
   --token=${token} \
-  --token-ttl=0 \
+  --token-ttl=24h \
+  $SANS_ARG \
   --ignore-preflight-errors=NumCPU
 
 # Make kubectl usable by root and the ubuntu user.

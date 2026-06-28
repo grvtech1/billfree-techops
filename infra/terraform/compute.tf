@@ -14,9 +14,17 @@ resource "aws_instance" "control_plane" {
     token       = local.bootstrap_token
   })
 
+  # IMDSv2 only — blocks SSRF/credential-theft via the v1 metadata endpoint.
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
   root_block_device {
     volume_size = 30
     volume_type = "gp3"
+    encrypted   = true # etcd (all K8s secrets) lives on this volume — encrypt at rest.
   }
 
   tags = { Name = "${local.name}-control-plane", Role = "control-plane" }
@@ -38,9 +46,17 @@ resource "aws_instance" "worker" {
     control_plane_ip = aws_instance.control_plane.private_ip
   })
 
+  # IMDSv2 only — blocks SSRF/credential-theft via the v1 metadata endpoint.
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
   root_block_device {
     volume_size = 40
     volume_type = "gp3"
+    encrypted   = true # Postgres PVC (local-path) is backed by this volume.
   }
 
   tags = { Name = "${local.name}-worker-${count.index}", Role = "worker" }

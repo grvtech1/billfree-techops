@@ -15,9 +15,12 @@ ARG VITE_GAS_URL=""
 RUN VITE_BACKEND="$VITE_BACKEND" VITE_GATEWAY_URL="$VITE_GATEWAY_URL" VITE_GAS_URL="$VITE_GAS_URL" \
     npm run build --workspace apps/web
 
-# ─── Serve static assets with Nginx ──────────────────────────────────────────
-FROM nginx:1.31-alpine AS runtime
+# ─── Serve static assets with rootless Nginx ─────────────────────────────────
+# nginx-unprivileged runs as UID 101 and listens on 8080 (no root, no
+# NET_BIND_SERVICE). It writes its pid/temp under /tmp + /var/cache/nginx, which
+# the Helm values mount as emptyDir so the container can keep a read-only rootfs.
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /repo/apps/web/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

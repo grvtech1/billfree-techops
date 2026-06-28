@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Baseline NetworkPolicies for the `billfree` namespace. Requires a CNI that
+# enforces them — Calico (installed by cloud-init) does.
+#
+# Posture: deny all ingress by default, then allow only:
+#   - traffic between pods inside this namespace (web → gateway → services → db)
+#   - the ingress controller reaching the public entrypoints (web, api-gateway)
+#   - Prometheus scraping /metrics
+# Egress is intentionally left open (services call out to Gemini/SMTP/etc.).
+#
+# NOTE: this is a namespace-wide baseline. A tighter follow-up would restrict
+# Postgres/Redis ingress to only the specific services that use them.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: billfree
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Allow any pod in this namespace to reach any other (the app's internal mesh:
+# web→gateway, gateway→services, services→postgres, migrate→postgres).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: billfree
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+---
+# Allow the ingress controller (its own namespace) to reach the public-facing
+# pods only — the SPA and the API gateway.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-controller
+  namespace: billfree
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: ["web", "api-gateway"]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+---
+# Allow Prometheus (monitoring namespace) to scrape /metrics on the app pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-metrics-scrape
+  namespace: billfree
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
