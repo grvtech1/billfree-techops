@@ -1,6 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { verifyAccessToken, type JwtConfig, type Pool } from '@billfree/service-common';
+import { ACCESS_TOKEN_COOKIE, verifyAccessToken, type JwtConfig, type Pool } from '@billfree/service-common';
 import { buildMonolith } from './server.js';
+
+function extractSetCookie(raw: string | string[] | undefined, name: string): string | null {
+  const cookies = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  for (const c of cookies) {
+    const pair = c.split(';')[0];
+    const eq = pair.indexOf('=');
+    if (eq === -1) continue;
+    if (pair.slice(0, eq).trim() === name) return pair.slice(eq + 1).trim();
+  }
+  return null;
+}
 
 const JWT: JwtConfig = { secret: 'test-secret-at-least-16-chars', issuer: 'billfree-techops' };
 // The repos store the pool but don't touch it until a DB route is hit; these
@@ -18,16 +29,19 @@ describe('modular monolith composition', () => {
     expect(res.statusCode).toBe(200);
   });
 
-  it('mounts the auth module: issues a verifiable token for a known identity', async () => {
+  it('mounts the auth module: issues a verifiable JWT as an httpOnly cookie', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/auth/token',
       payload: { email: 'agent1@billfree.in' },
     });
     expect(res.statusCode).toBe(200);
-    const { token, user } = res.json().data;
-    expect(user.role).toBe('agent');
-    const decoded = await verifyAccessToken(token, JWT);
+    // Token is in httpOnly cookie, not in response body.
+    expect(res.json().data).not.toHaveProperty('token');
+    expect(res.json().data.user.role).toBe('agent');
+    const token = extractSetCookie(res.headers['set-cookie'], ACCESS_TOKEN_COOKIE);
+    expect(token).toBeTruthy();
+    const decoded = await verifyAccessToken(token!, JWT);
     expect(decoded.sub).toBe('agent1@billfree.in');
   });
 
@@ -44,13 +58,13 @@ describe('modular monolith composition', () => {
     const anon = await app.inject({ method: 'GET', url: '/auth/agents' });
     expect(anon.statusCode).toBe(401);
 
-    const issued = (
-      await app.inject({ method: 'POST', url: '/auth/token', payload: { email: 'admin@billfree.in' } })
-    ).json();
+    // Extract token from cookie, then send as Bearer (inject doesn't auto-send cookies).
+    const login = await app.inject({ method: 'POST', url: '/auth/token', payload: { email: 'admin@billfree.in' } });
+    const token = extractSetCookie(login.headers['set-cookie'], ACCESS_TOKEN_COOKIE);
     const ok = await app.inject({
       method: 'GET',
       url: '/auth/agents',
-      headers: { authorization: `Bearer ${issued.data.token}` },
+      headers: { authorization: `Bearer ${token}` },
     });
     expect(ok.statusCode).toBe(200);
     expect(ok.json().data.count).toBeGreaterThan(0);
