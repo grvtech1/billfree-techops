@@ -1,7 +1,7 @@
 nameOverride: report-service
 image:
   repository: ghcr.io/grvtech1/billfree-techops/report-service
-  tag: "fe5b3196a29acb419361a1cdc98ad498edd0d62b"
+  tag: "c7223c05e8e759df98777cf0ff1602cee19c4aff"
 replicaCount: 2
 containerPort: 8080
 env:
