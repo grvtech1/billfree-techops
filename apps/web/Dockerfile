@@ -19,7 +19,7 @@ RUN VITE_BACKEND="$VITE_BACKEND" VITE_GATEWAY_URL="$VITE_GATEWAY_URL" VITE_GAS_U
 # nginx-unprivileged runs as UID 101 and listens on 8080 (no root, no
 # NET_BIND_SERVICE). It writes its pid/temp under /tmp + /var/cache/nginx, which
 # the Helm values mount as emptyDir so the container can keep a read-only rootfs.
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 # Patch OS packages (clears Alpine CVEs Trivy flags). The base image sets
 # USER 101; switch to root just for the upgrade, then back to the unprivileged
 # user so the container still runs rootless.
