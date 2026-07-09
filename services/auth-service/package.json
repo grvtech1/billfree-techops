@@ -18,17 +18,17 @@
   "dependencies": {
     "@billfree/service-common": "*",
     "@billfree/shared": "*",
-    "@fastify/cookie": "^11.0.2",
-    "fastify": "^5.9.0",
+    "@fastify/cookie": "^11.1.0",
+    "fastify": "^5.10.0",
     "jose": "^5.9.6",
     "pino": "^9.5.0",
     "prom-client": "^15.1.3",
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.20.1",
     "tsup": "^8.3.5",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.0",
     "typescript": "^5.9.3",
     "vitest": "^2.1.8"
   }
